@@ -2,6 +2,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 PROJECT(nethck)
 SET(NETHCK_NAME "NEThck Network Transparency")
 SET(NETHCK_DESCRIPTION "Provides networking functionality to glhck for sharing geometry beetwen applications")
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${nethck_SOURCE_DIR}/CMake/modules)
 
 # Debug build
 SET(CMAKE_BUILD_TYPE Debug)
@@ -24,6 +25,9 @@ ENDIF ()
 # Set nethck's include dir
 SET(NETHCK_INCLUDE_DIR ${nethck_SOURCE_DIR}/include)
 
+# Do it (tm)
+ADD_SUBDIRECTORY(lib)
+
 # Warnings
 IF (MSVC)
    IF (CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
@@ -38,6 +42,7 @@ ENDIF ()
 
 # Do nethck
 ADD_SUBDIRECTORY(src)
+ADD_SUBDIRECTORY(example)
 
 # Install
 INSTALL(FILES include/glhck/nethck.h DESTINATION include/glhck)
