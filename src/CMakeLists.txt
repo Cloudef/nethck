@@ -6,8 +6,8 @@ FIND_PACKAGE(ENet REQUIRED)
 # include directories
 INCLUDE_DIRECTORIES(
    ${ENet_INCLUDE_DIR}
-   ${KAZMATH_INCLUDE_DIR}
-   ${GLHCK_INCLUDE_DIR}
+   ${kazmath_SOURCE_DIR}/src
+   ${glhck_SOURCE_DIR}/include
    ${NETHCK_INCLUDE_DIR}
 )
 

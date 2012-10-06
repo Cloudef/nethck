@@ -5,6 +5,8 @@
 
 int main(int argc, char **argv)
 {
+   glhckInit(argc, argv);
    nethckInit(argc, argv);
+
    return EXIT_SUCCESS;
 }
