@@ -1,0 +1,6 @@
+[submodule "lib/enet/src"]
+	path = lib/enet/src
+	url = https://github.com/lsalzman/enet.git
+[submodule "lib/glhck"]
+	path = lib/glhck
+	url = https://github.com/Cloudef/glhck.git
