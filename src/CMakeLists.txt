@@ -1,5 +1,7 @@
 SET(NETHCK_SRC
-   nethck.c)
+   nethck.c
+   client.c
+   server.c)
 
 FIND_PACKAGE(ENet REQUIRED)
 

@@ -34,7 +34,19 @@ extern "C" {
  * public api
  ***/
 
+/* init */
 NETHCKAPI int nethckInit(int argc, char **argv);
+
+/* client */
+NETHCKAPI int nethckClientInit(const char *host, int port);
+NETHCKAPI void nethckClientKill(void);
+NETHCKAPI int nethckClientUpdate(void);
+NETHCKAPI void nethckClientObjectRender(const glhckObject *object);
+
+/* server */
+NETHCKAPI int nethckServerInit(const char *host, int port);
+NETHCKAPI void nethckServerKill(void);
+NETHCKAPI int nethckServerUpdate(void);
 
 #ifdef __cplusplus
 }
