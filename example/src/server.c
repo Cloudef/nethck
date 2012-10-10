@@ -11,8 +11,11 @@ int main(int argc, char **argv)
       return EXIT_FAILURE;
 
    int packets = 0;
-   while ((packets+=nethckServerUpdate())<2)
-      sleep(1);
+   while (1) {
+      printf("Connected clients: %u\n", nethckServerClientCount());
+      if ((packets+=nethckServerUpdate()) && !nethckServerClientCount())
+         break;
+   }
 
    nethckServerKill();
    return EXIT_SUCCESS;

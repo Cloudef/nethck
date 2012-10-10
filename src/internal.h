@@ -9,6 +9,7 @@
 
 #include <glhck/glhck.h>
 #include "glhck/nethck.h"
+#include "helper/common.h"
 
 #if defined(_glhck_c_)
    char _nethckInitialized = 0;

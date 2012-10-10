@@ -10,6 +10,8 @@ SET(CMAKE_BUILD_TYPE Debug)
 # Release build
 # SET(CMAKE_BUILD_TYPE Release)
 
+ADD_DEFINITIONS(-DGLHCK_KAZMATH_FLOAT -DUSE_SINGLE_PRECISION)
+
 # Build checks
 # Abort git submodule init && git submodule update has not been ran.
 SET(SUBMODULE_ERROR "Run 'git submodule update --init --recursive' update first.")

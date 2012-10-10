@@ -47,6 +47,7 @@ NETHCKAPI void nethckClientObjectRender(const glhckObject *object);
 NETHCKAPI int nethckServerInit(const char *host, int port);
 NETHCKAPI void nethckServerKill(void);
 NETHCKAPI int nethckServerUpdate(void);
+NETHCKAPI unsigned int nethckServerClientCount(void);
 
 #ifdef __cplusplus
 }

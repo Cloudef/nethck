@@ -5,9 +5,15 @@
 #include <enet/enet.h> /* for enet   */
 #include <string.h>
 
+typedef struct __NETHCKclient {
+   char host[46];
+   struct __NETHCKclient *next;
+} __NETHCKclient;
+
 /* \brief local server struct */
 typedef struct __NETHCKserver {
    ENetHost *enet;
+   __NETHCKclient *clients;
 } __NETHCKserver;
 static __NETHCKserver _NETHCKserver;
 static char _nethckServerInitialized = 0;
@@ -16,6 +22,33 @@ static char _nethckServerInitialized = 0;
 #define CALL(x, y, ...) ;
 #define RET(x, y, ...) ;
 #define TRACE(x) ;
+
+/* \brief add new client */
+static __NETHCKclient* _nethckServerNewClient(__NETHCKclient *params)
+{
+   __NETHCKclient *c;
+
+   /* add to list */
+   for (c = _NETHCKserver.clients; c && c->next; c = c->next);
+   if (c) c = c->next = malloc(sizeof(__NETHCKclient));
+   else c = _NETHCKserver.clients = malloc(sizeof(__NETHCKclient));
+
+   memcpy(c, params, sizeof(__NETHCKclient));
+   return c;
+}
+
+/* \brief free client */
+static void _nethckServerFreeClient(__NETHCKclient *client)
+{
+   __NETHCKclient *c;
+
+   /* remove from list */
+   for (c = _NETHCKserver.clients; c != client && c->next != client; c = c->next);
+   if (c == client) _NETHCKserver.clients = client->next;
+   else c->next = client->next;
+
+   free(client);
+}
 
 /* \brief initialize enet internally */
 static int _nethckEnetInit(const char *host, int port)
@@ -72,11 +105,41 @@ static void _nethckEnetDestroy(void)
 
 static void _nethckServerManagePacketObject(unsigned char *data)
 {
+   nethckObjectPacket *packet = (nethckObjectPacket*)data;
+   glhckVector3f bias, scale;
+   glhckVector3f translation, rotation, scaling;
+   float textureRange;
+   unsigned int tmp;
+
+   _nethckBamsToV3F(&bias, &packet->geometry.bias);
+   _nethckBamsToV3F(&scale, &packet->geometry.scale);
+   tmp = ntohl(packet->geometry.textureRange)<<16;
+   textureRange = *((float*)&tmp);
+
+   _nethckBamsToV3F(&translation, &packet->view.translation);
+   _nethckBamsToV3F(&rotation, &packet->view.rotation);
+   _nethckBamsToV3F(&scaling, &packet->view.scaling);
+
+   printf("-- Echo %p from Client -->\n", packet);
+   printf("[] Geometry type: %u\n", packet->geometry.type);
+   printf("[] Vertex type: %d\n", packet->geometry.vertexType);
+   printf("[] Index type: %d\n", packet->geometry.indexType);
+   printf("[] Vertex count: %zu\n", packet->geometry.vertexCount);
+   printf("[] Index count: %zu\n", packet->geometry.indexCount);
+   printf("[] Bias: "VEC3S"\n", VEC3(&bias));
+   printf("[] Scale: "VEC3S"\n", VEC3(&scale));
+   printf("[] Texture range: %.0f\n", textureRange);
+   printf("[] Translation: "VEC3S"\n", VEC3(&translation));
+   printf("[] Rotation: "VEC3S"\n", VEC3(&rotation));
+   printf("[] Scaling: "VEC3S"\n", VEC3(&scaling));
+   printf("[] Color: "COLBS"\n", COLB(&packet->material.color));
+   printf("<---\n");
 }
 
 /* \brief update enet state internally */
 static int _nethckEnetUpdate(void)
 {
+   __NETHCKclient client;
    ENetEvent event;
    unsigned int packets = 0;
    TRACE(2);
@@ -89,12 +152,18 @@ static int _nethckEnetUpdate(void)
                   event.peer->address.host,
                   event.peer->address.port);
 
-            /* Store any relevant client information here. */
-            event.peer->data = "Client information";
+            /* fill new client struct */
+            memset(&client, 0, sizeof(__NETHCKclient));
+            enet_address_get_host_ip(&event.peer->address, client.host, sizeof(client.host));
+            event.peer->data = _nethckServerNewClient(&client);
             break;
 
          case ENET_EVENT_TYPE_RECEIVE:
             /* manage packet by kind */
+            printf("A packet of length %zu was received from %s on channel %u.\n",
+                  event.packet->dataLength,
+                  ((__NETHCKclient*)event.peer->data)->host,
+                  event.channelID);
             printf("ID: %d\n", ((nethckPacket*)event.packet->data)->type);
             switch (((nethckPacket*)event.packet->data)->type) {
                case NETHCK_PACKET_OBJECT:
@@ -105,22 +174,24 @@ static int _nethckEnetUpdate(void)
                   printf("A packet of length %zu containing %s was received from %s on channel %u.\n",
                      event.packet->dataLength,
                      (char*)event.packet->data,
-                     (char*)event.peer->data,
+                     ((__NETHCKclient*)event.peer->data)->host,
                      event.channelID);
                   break;
             }
 
-            /* Echo the packet to clients */
+            /* echo the packet to clients */
             enet_host_broadcast(_NETHCKserver.enet, 0, event.packet);
 
-            /* Clean up the packet now that we're done using it. */
+            /* clean up the packet now that we're done using it. */
             //enet_packet_destroy(event.packet);
             break;
 
          case ENET_EVENT_TYPE_DISCONNECT:
-            printf("%s disconected.\n", (char*)event.peer->data);
+            printf("%s disconected.\n",
+                  ((__NETHCKclient*)event.peer->data)->host);
 
-            /* Reset the peer's client information. */
+            /* free the client */
+            _nethckServerFreeClient(event.peer->data);
             event.peer->data = NULL;
             break;
 
@@ -195,5 +266,20 @@ NETHCKAPI int nethckServerUpdate(void)
 
    /* updat enet */
    return _nethckEnetUpdate();
+}
+
+/* \brief get number of connected clients */
+NETHCKAPI unsigned int nethckServerClientCount(void)
+{
+   unsigned int cnt;
+   __NETHCKclient *c;
+   TRACE(2);
+
+   /* is initialized? */
+   if (!_nethckServerInitialized)
+      return 0;
+
+   for (cnt = 0, c = _NETHCKserver.clients; c; c = c->next, ++cnt);
+   return cnt;
 }
 
