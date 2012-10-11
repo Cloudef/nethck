@@ -45,7 +45,7 @@ static void _nethckServerFreeClient(__NETHCKclient *client)
    /* remove from list */
    for (c = _NETHCKserver.clients; c != client && c->next != client; c = c->next);
    if (c == client) _NETHCKserver.clients = client->next;
-   else c->next = client->next;
+   else if (c) c->next = client->next;
 
    free(client);
 }
