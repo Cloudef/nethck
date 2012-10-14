@@ -1,6 +1,11 @@
 #include "internal.h"
 #include <glhck/glhck.h>
 #include <arpa/inet.h>
+#include <malloc.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 /* \brief float vector to bams v2 vector */
 void _nethckV2FToBams(nethckVector2B *bv2, const glhckVector2f *v2)

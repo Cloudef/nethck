@@ -62,13 +62,15 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    glhckGeometrySetVertices(geometry, geometry->vertexType, vdata, geometry->vertexCount);
    NULLDO(free, vdata);
 
-   isize = geometry->indexCount * glhckIndexTypeElementSize(geometry->indexType);
-   if (!(idata = malloc(isize)))
-      goto fail;
+   if (geometry->indexCount) {
+      isize = geometry->indexCount * glhckIndexTypeElementSize(geometry->indexType);
+      if (!(idata = malloc(isize)))
+         goto fail;
 
-   memcpy(idata, offset, isize); offset += isize;
-   glhckGeometrySetIndices(geometry, geometry->indexType, idata, geometry->indexCount);
-   NULLDO(free, idata);
+      memcpy(idata, offset, isize); offset += isize;
+      glhckGeometrySetIndices(geometry, geometry->indexType, idata, geometry->indexCount);
+      NULLDO(free, idata);
+   }
 
    glhckObjectScale(object, (kmVec3*)&scaling);
    glhckObjectPosition(object, (kmVec3*)&translation);
@@ -78,6 +80,7 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    glhckObjectUpdate(object);
    glhckObjectDraw(object);
 
+#if 1
    printf("-- Echo %p from Server -->\n", packet);
    printf("[] Geometry type: %u\n", geometry->type);
    printf("[] Vertex type: %d\n", geometry->vertexType);
@@ -92,6 +95,7 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    printf("[] Scaling: "VEC3S"\n", VEC3(glhckObjectGetScale(object)));
    printf("[] Color: "COLBS"\n", COLB(glhckObjectGetColor(object)));
    printf("<---\n");
+#endif
 
    glhckObjectFree(object);
    return;
@@ -219,6 +223,7 @@ static int _nethckEnetUpdate(void)
    while (enet_host_service(_NETHCKclient.enet, &event, 0) > 0) {
       switch (event.type) {
          case ENET_EVENT_TYPE_RECEIVE:
+#if 0
             printf("A packet of length %zu containing %s was received from server on channel %u.\n",
                   event.packet->dataLength,
                   (char*)event.packet->data,
@@ -226,6 +231,7 @@ static int _nethckEnetUpdate(void)
 
             /* manage packet by kind */
             printf("ID: %d\n", ((nethckPacket*)event.packet->data)->type);
+#endif
             switch (((nethckPacket*)event.packet->data)->type) {
                case NETHCK_PACKET_OBJECT:
                   _nethckClientManagePacketObject(event.packet->data);
@@ -267,6 +273,31 @@ static void _nethckEnetSend(unsigned char *data, size_t size)
    packet = enet_packet_create(data, size, ENET_PACKET_FLAG_RELIABLE);
    enet_peer_send(_NETHCKclient.peer, 0, packet);
    enet_host_flush(_NETHCKclient.enet);
+}
+
+/* \brief send object packet */
+static void nethckClientSendObjectPacket(nethckObjectPacket *packet,
+      void *vdata, size_t vsize, void *idata, size_t isize)
+{
+   size_t size;
+   unsigned char *data = NULL, *offset;
+   assert(packet);
+
+   size = sizeof(nethckObjectPacket) + vsize + isize;
+   if (!(offset = data = malloc(size)))
+      goto fail;
+
+   packet->type = NETHCK_PACKET_OBJECT;
+   memcpy(offset, packet, sizeof(nethckObjectPacket)); offset += sizeof(nethckObjectPacket);
+   memcpy(offset, vdata, vsize); offset += vsize;
+   memcpy(offset, idata, isize); offset += isize;
+
+   _nethckEnetSend(data, size);
+   NULLDO(free, data);
+   return;
+
+fail:
+   IFDO(free, data);
 }
 
 /* public api */
@@ -332,46 +363,60 @@ NETHCKAPI int nethckClientUpdate(void)
    return _nethckEnetUpdate();
 }
 
+/* \brief 'import' object to network */
+NETHCKAPI void nethckClientImportObject(nethckImportObject *import)
+{
+   nethckObjectPacket packet;
+   size_t vsize, isize;
+
+   packet.geometry.type         = import->geometry.type;
+   packet.geometry.vertexType   = GLHCK_VERTEX_V3F;
+   packet.geometry.indexType    = GLHCK_INDEX_INTEGER;
+   packet.geometry.vertexCount  = import->geometry.vertexCount;
+   packet.geometry.indexCount   = import->geometry.indexCount;
+   packet.geometry.textureRange = htonl(1);
+
+   _nethckV3FToBams(&packet.view.translation, &import->view.translation);
+   _nethckV3FToBams(&packet.view.rotation, &import->view.rotation);
+   _nethckV3FToBams(&packet.view.scaling, &import->view.scaling);
+   memcpy(&packet.material.color, &import->material.color, sizeof(glhckColorb));
+
+   vsize = packet.geometry.vertexCount * glhckVertexTypeElementSize(packet.geometry.vertexType);
+   isize = packet.geometry.indexCount * glhckIndexTypeElementSize(packet.geometry.indexType);
+   nethckClientSendObjectPacket(&packet,
+         import->geometry.vertexData, vsize,
+         import->geometry.indexData, isize);
+}
+
 /* \brief 'render' object to network */
 NETHCKAPI void nethckClientObjectRender(const glhckObject *object)
 {
    glhckGeometry *geometry;
-   nethckObjectPacket *packet;
-   unsigned char *data = NULL, *offset;
+   nethckObjectPacket packet;
    void *vdata = NULL, *idata = NULL;
-   size_t size, vsize = 0, isize = 0;
+   size_t vsize = 0, isize = 0;
 
    if (!(geometry = glhckObjectGetGeometry(object)))
-      goto fail;
-
-   size = sizeof(nethckObjectPacket);
+      return;
 
    _nethckGeometryVertexDataAndSize(geometry, &vdata, &vsize);
-   _nethckGeometryVertexDataAndSize(geometry, &idata, &isize);
-   size += vsize + isize;
+   _nethckGeometryIndexDataAndSize(geometry, &idata, &isize);
 
-   if (!(data = malloc(size)))
-      goto fail;
+   packet.geometry.type        = geometry->type;
+   packet.geometry.vertexType  = geometry->vertexType;
+   packet.geometry.indexType   = geometry->indexType;
+   packet.geometry.vertexCount = geometry->vertexCount;
+   packet.geometry.indexCount  = geometry->indexCount;
+   _nethckV3FToBams(&packet.geometry.scale, &geometry->scale);
+   _nethckV3FToBams(&packet.geometry.bias, &geometry->bias);
+   packet.geometry.textureRange = htonl(*((unsigned int*)&geometry->textureRange)>>16);
 
-   offset  = data;
-   packet  = (nethckObjectPacket*)data;
-   offset += sizeof(nethckObjectPacket);
+   _nethckV3FToBams(&packet.view.translation, (glhckVector3f*)glhckObjectGetPosition(object));
+   _nethckV3FToBams(&packet.view.rotation, (glhckVector3f*)glhckObjectGetRotation(object));
+   _nethckV3FToBams(&packet.view.scaling, (glhckVector3f*)glhckObjectGetScale(object));
+   memcpy(&packet.material.color, glhckObjectGetColor(object), sizeof(glhckColorb));
 
-   packet->type = NETHCK_PACKET_OBJECT;
-   packet->geometry.type        = geometry->type;
-   packet->geometry.vertexType  = geometry->vertexType;
-   packet->geometry.indexType   = geometry->indexType;
-   packet->geometry.vertexCount = geometry->vertexCount;
-   packet->geometry.indexCount  = geometry->indexCount;
-   _nethckV3FToBams(&packet->geometry.scale, &geometry->scale);
-   _nethckV3FToBams(&packet->geometry.bias, &geometry->bias);
-   packet->geometry.textureRange = htonl(*((unsigned int*)&geometry->textureRange)>>16);
-
-   _nethckV3FToBams(&packet->view.translation, (glhckVector3f*)glhckObjectGetPosition(object));
-   _nethckV3FToBams(&packet->view.rotation, (glhckVector3f*)glhckObjectGetRotation(object));
-   _nethckV3FToBams(&packet->view.scaling, (glhckVector3f*)glhckObjectGetScale(object));
-   memcpy(&packet->material.color, glhckObjectGetColor(object), sizeof(glhckColorb));
-
+#if 0
    printf("-- Echo %p to Server -->\n", object);
    printf("[] Geometry type: %u\n", geometry->type);
    printf("[] Vertex type: %d\n", geometry->vertexType);
@@ -386,16 +431,10 @@ NETHCKAPI void nethckClientObjectRender(const glhckObject *object)
    printf("[] Scaling: "VEC3S"\n", VEC3(glhckObjectGetScale(object)));
    printf("[] Color: "COLBS"\n", COLB(glhckObjectGetColor(object)));
    printf("<---\n");
+#endif
 
-   memcpy(offset, vdata, vsize); offset += vsize;
-   memcpy(offset, idata, isize); offset += isize;
-
-   _nethckEnetSend(data, size);
-   NULLDO(free, data);
-   return;
-
-fail:
-   IFDO(free, data);
+   /* send */
+   nethckClientSendObjectPacket(&packet, vdata, vsize, idata, isize);
 }
 
 /* vim: set ts=8 sw=3 tw=0 :*/

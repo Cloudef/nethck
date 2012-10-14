@@ -1,6 +1,7 @@
 SET(EXAMPLE_EXE
    server
-   client)
+   client
+   blender)
 
 FOREACH (example ${EXAMPLE_EXE})
    PROJECT(${example})
@@ -10,6 +11,6 @@ FOREACH (example ${EXAMPLE_EXE})
       ${nethck_SOURCE_DIR}/include
       ${GLFW_SOURCE_DIR}/include
       ${kazmath_SOURCE_DIR}/src)
-   TARGET_LINK_LIBRARIES(${example} nethck glfw glhck ${GLFW_LIBRARIES})
+   TARGET_LINK_LIBRARIES(${example} nethckStatic glfw glhck ${GLFW_LIBRARIES})
    INSTALL(TARGETS ${example} DESTINATION example)
 ENDFOREACH (example)

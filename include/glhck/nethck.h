@@ -30,6 +30,33 @@ extern "C" {
 #  define NETHCKAPI
 #endif
 
+/* \brief import structs for easier data passing
+ * from other applications that are not glhck.
+ *
+ * These structs only use public types mostly from glhck header. */
+
+typedef struct nethckImportView {
+   glhckVector3f translation, rotation, scaling;
+} nethckImportView;
+
+typedef struct nethckImportMaterial {
+   glhckColorb color;
+} nethckImportMaterial;
+
+typedef struct nethckImportGeometry {
+   unsigned int type;
+   size_t vertexCount;
+   size_t indexCount;
+   glhckImportVertexData *vertexData;
+   glhckImportIndexData *indexData;
+} nethckImportGeometry;
+
+typedef struct nethckImportObject {
+   struct nethckImportGeometry geometry;
+   struct nethckImportView view;
+   struct nethckImportMaterial material;
+} nethckImportObject;
+
 /***
  * public api
  ***/
@@ -42,6 +69,7 @@ NETHCKAPI int nethckClientInit(const char *host, int port);
 NETHCKAPI void nethckClientKill(void);
 NETHCKAPI int nethckClientUpdate(void);
 NETHCKAPI void nethckClientObjectRender(const glhckObject *object);
+NETHCKAPI void nethckClientImportObject(nethckImportObject *import);
 
 /* server */
 NETHCKAPI int nethckServerInit(const char *host, int port);

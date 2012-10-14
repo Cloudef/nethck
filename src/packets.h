@@ -6,15 +6,15 @@ typedef enum nethckPacketType {
    NETHCK_PACKET_OBJECT,
 } _nethckPacketType;
 
-/* \brief representation of object's view */
-typedef struct nethckView {
-   nethckVector3B translation, rotation, scaling;
-} nethckView;
-
 /* \brief representation of object's material */
 typedef struct nethckMaterial {
    glhckColorb color;
 } nethckMaterial;
+
+/* \brief representation of object's view */
+typedef struct nethckView {
+   nethckVector3B translation, rotation, scaling;
+} nethckView;
 
 /* \brief represntation of object's geometry */
 typedef struct nethckGeometry {

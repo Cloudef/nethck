@@ -23,7 +23,6 @@ static void resize_callback(GLFWwindow window, int width, int height)
 int main(int argc, char **argv)
 {
    GLFWwindow window;
-   glhckObject *cube;
    glhckCamera *camera;
    float          now          = 0;
    float          last         = 0;
@@ -61,17 +60,9 @@ int main(int argc, char **argv)
    glhckCameraRange(camera, 1.0f, 1000.0f);
    glhckObjectPositionf(glhckCameraGetObject(camera), 0.0f, 0.0f, -5.0f);
 
-   if (!(cube = glhckCubeNew(1)))
-      return EXIT_FAILURE;
-
-   glhckObjectPositionf(cube, 0.0f, 0.0f, 0.0f);
-   glhckObjectRotatef(cube, 0.0f, 25.0f, 1.0f);
-   glhckObjectColorb(cube, 0, 255, 255, 85);
-
    glfwSetWindowCloseCallback(close_callback);
    glfwSetWindowSizeCallback(resize_callback);
 
-   char shouldRender = 1;
    RUNNING = 1;
    while (RUNNING && glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS) {
       last  =  now;
@@ -80,27 +71,11 @@ int main(int argc, char **argv)
       glfwPollEvents();
 
       glhckCameraUpdate(camera);
-
-#if 1
       if (nethckClientUpdate()) {
          glhckClear();
          glhckRender();
          glfwSwapBuffers();
-         shouldRender = 1;
       }
-
-      glhckObjectRotatef(cube, 0.0f, 30.0f * delta, 0.0f);
-      if (shouldRender) {
-         nethckClientObjectRender(cube);
-         shouldRender = 0;
-      }
-#else
-      glhckObjectRotatef(cube, 0.0f, 30.0f * delta, 0.0f);
-      glhckObjectDraw(cube);
-      glhckClear();
-      glhckRender();
-      glfwSwapBuffers();
-#endif
 
       if (fpsDelay < now) {
          if (duration > 0.0f) {

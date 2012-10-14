@@ -35,10 +35,25 @@ typedef struct nethckVector2B {
    unsigned int x, y;
 } nethckVector2B;
 
+/* fifo types */
+typedef enum _nethckFifoType {
+   NETHCK_FIFO_TYPE_LISTEN,
+   NETHCK_FIFO_TYPE_RELAY,
+} _nethckFifoType;
+
+typedef struct _nethckFifo {
+   _nethckFifoType type;
+   unsigned int fd;
+} _nethckFifo;
+
 /* bams conversions */
 void _nethckV2FToBams(nethckVector2B *bv2, const glhckVector2f *v2);
 void _nethckV3FToBams(nethckVector3B *bv3, const glhckVector3f *v3);
 void _nethckBamsToV2F(glhckVector2f *v2, const nethckVector2B *bv2);
 void _nethckBamsToV3F(glhckVector3f *v3, const nethckVector3B *bv3);
+
+/* geometry helpers */
+void _nethckGeometryVertexDataAndSize(glhckGeometry *geometry, void **data, size_t *size);
+void _nethckGeometryIndexDataAndSize(glhckGeometry *geometry, void **data, size_t *size);
 
 #endif /* __nethck_internal_h__ */
