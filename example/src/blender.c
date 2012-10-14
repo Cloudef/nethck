@@ -14,6 +14,13 @@ enum {
    GEOMETRY,
 };
 
+enum {
+   VERTEX,
+   NORMAL,
+   COORD,
+   LAST
+};
+
 static void removeFifo(void)
 {
    unlink("/tmp/blender.fifo");
@@ -23,6 +30,7 @@ static void handleGeometry(FILE *f, glhckObject *object, size_t vertexCount, siz
 {
    char buffer[1024];
    size_t v = 0, i = 0;
+   unsigned int index = 0;
    glhckImportVertexData *vdata = NULL;
    glhckImportIndexData *idata = NULL;
    glhckGeometry *geometry = NULL;
@@ -45,33 +53,41 @@ static void handleGeometry(FILE *f, glhckObject *object, size_t vertexCount, siz
       if (!fgets(buffer, sizeof(buffer), f))
          goto fail;
 
-      sscanf(buffer, "%f,%f,%f",
-            &vdata[v].vertex.x, &vdata[v].vertex.y, &vdata[v].vertex.z);
-      printf("%f, %f, %f\n",
-            vdata[v].vertex.x, vdata[v].vertex.y, vdata[v].vertex.z);
+      printf("%s", buffer);
+      switch (index) {
+         case VERTEX:
+            sscanf(buffer, "%f,%f,%f",
+                  &vdata[v].vertex.x, &vdata[v].vertex.y, &vdata[v].vertex.z);
+            break;
+         case NORMAL:
+            sscanf(buffer, "%f,%f,%f",
+                  &vdata[v].normal.x, &vdata[v].normal.y, &vdata[v].normal.z);
+            break;
+         case COORD:
+            sscanf(buffer, "%f,%f",
+                  &vdata[v].coord.x, &vdata[v].coord.y);
+            break;
+      }
+
       vdata[v].color.r = 255;
       vdata[v].color.g = 255;
       vdata[v].color.b = 255;
       vdata[v].color.a = 255;
 
-#if 0
-      vdata[v].color.r = colorf.x * 255.0f;
-      vdata[v].color.g = colorf.y * 255.0f;
-      vdata[v].color.b = colorf.z * 255.0f;
-      vdata[v].color.a = colorf.w * 255.0f;
-#endif
-
-      ++v;
+      if (++index == LAST) {
+         index = 0;
+         ++v;
+      }
    }
 
-   while (i != indexCount) {
+   while (i < indexCount) {
       memset(buffer, 0, sizeof(buffer));
       if (!fgets(buffer, sizeof(buffer), f))
          goto fail;
 
-      sscanf(buffer, "%u", &idata[i]);
-      printf("%u\n", idata[i]);
-      ++i;
+      printf("%s", buffer);
+      sscanf(buffer, "%u,%u,%u", &idata[i+0], &idata[i+1], &idata[i+2]);
+      i+=3;
    }
 
    glhckObjectInsertVertices(object, vertexCount, GLHCK_VERTEX_V3F, vdata);

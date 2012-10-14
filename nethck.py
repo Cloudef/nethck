@@ -1,33 +1,103 @@
 import bpy
 
+def r3d(v):
+   return round(v[0],6), round(v[1],6), round(v[2],6)
+
+def r2d(v):
+   return round(v[0],6), round(v[1],6)
+
+lvl=[]
+lnl=[]
+luvl=[]
+lfl=[]
+
+def buildData(ob):
+   global lvl
+   global lnl
+   global luvl
+   global lfl
+
+   lvdic = {}
+   lfl = []
+   lvl = []
+   lnl = []
+   luvl = []
+   lvcnt = 0
+   isSmooth = False
+   hasUV = True
+   msh = ob.to_mesh(bpy.context.scene,True,"PREVIEW")
+
+   if (len(msh.tessface_uv_textures)>0):
+      if (msh.tessface_uv_textures.active is None):
+         hasUV = False
+   else:
+      hasUV = False
+
+   if (hasUV):
+      activeUV = msh.tessface_uv_textures.active.data
+
+   for i,f in enumerate(msh.tessfaces):
+      isSmooth = f.use_smooth
+      tmpfaces = []
+      for j,v in enumerate(f.vertices):
+         vec = msh.vertices[v].co
+         vec = r3d(vec)
+         if (isSmooth):
+            nor = msh.vertices[v].normal
+         else:
+            nor = f.normal;
+         nor = r3d(nor)
+
+         if (hasUV):
+            co = activeUV[i].uv[j]
+            co = r2d(co)
+         else:
+            co = (0.0, 0.0)
+
+         key = vec, nor, co
+         vinx = lvdic.get(key)
+
+         if (vinx is None):
+            lvdic[key] = lvcnt
+            lvl.append(vec)
+            lnl.append(nor)
+            luvl.append(co)
+            tmpfaces.append(lvcnt)
+            lvcnt+=1
+         else:
+            inx = lvdic[key]
+            tmpfaces.append(inx)
+
+      if (len(tmpfaces)==3):
+         lfl.append(tmpfaces)
+      else:
+         lfl.append([tmpfaces[0], tmpfaces[1], tmpfaces[2]])
+         lfl.append([tmpfaces[0], tmpfaces[2], tmpfaces[3]])
+
 def sendObject(ob):
-   ic = 0
+   buildData(ob)
    f = open('/tmp/blender.fifo', 'w')
-   f.write(str(-ob.location[0])+","+
-           str(ob.location[2])+","+
-           str(ob.location[1])+"\n")
-   f.write(str(-ob.rotation_euler[0])+","+
-           str(ob.rotation_euler[2])+","+
-           str(ob.rotation_euler[1])+"\n")
+   f.write(str(ob.location[0])+","+
+           str(ob.location[1])+","+
+           str(ob.location[2])+"\n")
+   f.write(str(ob.rotation_euler[0])+","+
+           str(ob.rotation_euler[1])+","+
+           str(ob.rotation_euler[2])+"\n")
    f.write(str(ob.scale[0])+","+
-           str(ob.scale[2])+","+
-           str(ob.scale[1])+"\n")
-   f.write(str(ob.color[0])+","+
-           str(ob.color[1])+","+
-           str(ob.color[2])+","+
-           str(ob.color[3])+"\n")
-   for p in ob.data.polygons:
-       ic += len(p.vertices)
-   f.write(str(len(ob.data.vertices))+","+
-           str(ic)+"\n");
-   for v in ob.data.vertices:
-      f.write(str(v.co[0])+","+
-              str(v.co[1])+","+
-              str(v.co[2])+"\n")
-   for p in ob.data.polygons:
-      verts = p.vertices[:]
-      for v in verts:
-         f.write(str(v)+"\n")
+           str(ob.scale[1])+","+
+           str(ob.scale[2])+"\n")
+   f.write("%f,%f,%f,%f\n"%tuple(ob.color))
+   f.write(str(len(lvl))+","+
+           str(len(lfl)*3)+"\n")
+
+   for i in range(0,len(lvl)):
+      f.write("%f,%f,%f\n"%tuple(lvl[i]))
+      f.write("%f,%f,%f\n"%tuple(lnl[i]))
+      f.write("%f,%f\n"%tuple(luvl[i]))
+
+   for i in lfl:
+      f.write("%d,%d,%d\n"%tuple(i))
+
    f.flush()
    f.close()
 
