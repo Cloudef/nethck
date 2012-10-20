@@ -108,14 +108,10 @@ static void _nethckServerManagePacketObject(unsigned char *data)
    nethckObjectPacket *packet = (nethckObjectPacket*)data;
    glhckVector3f bias, scale;
    glhckVector3f translation, rotation, scaling;
-   float textureRange;
    unsigned int tmp;
 
    _nethckBamsToV3F(&bias, &packet->geometry.bias);
    _nethckBamsToV3F(&scale, &packet->geometry.scale);
-   tmp = ntohl(packet->geometry.textureRange)<<16;
-   textureRange = *((float*)&tmp);
-
    _nethckBamsToV3F(&translation, &packet->view.translation);
    _nethckBamsToV3F(&rotation, &packet->view.rotation);
    _nethckBamsToV3F(&scaling, &packet->view.scaling);
@@ -128,7 +124,7 @@ static void _nethckServerManagePacketObject(unsigned char *data)
    printf("[] Index count: %zu\n", packet->geometry.indexCount);
    printf("[] Bias: "VEC3S"\n", VEC3(&bias));
    printf("[] Scale: "VEC3S"\n", VEC3(&scale));
-   printf("[] Texture range: %.0f\n", textureRange);
+   printf("[] Texture range: %u\n", packet->geometry.textureRange);
    printf("[] Translation: "VEC3S"\n", VEC3(&translation));
    printf("[] Rotation: "VEC3S"\n", VEC3(&rotation));
    printf("[] Scaling: "VEC3S"\n", VEC3(&scaling));

@@ -25,7 +25,7 @@ typedef struct nethckGeometry {
    size_t indexCount;
    nethckVector3B bias;
    nethckVector3B scale;
-   unsigned int textureRange;
+   unsigned short textureRange;
 } nethckGeometry;
 
 /* \brief object packet */

@@ -47,8 +47,7 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    geometry->indexCount  = packet->geometry.indexCount;
    _nethckBamsToV3F(&geometry->bias, &packet->geometry.bias);
    _nethckBamsToV3F(&geometry->scale, &packet->geometry.scale);
-   tmp = ntohl(packet->geometry.textureRange)<<16;
-   geometry->textureRange = *((float*)&tmp);
+   geometry->textureRange = packet->geometry.textureRange;
 
    _nethckBamsToV3F(&translation, &packet->view.translation);
    _nethckBamsToV3F(&rotation, &packet->view.rotation);
@@ -89,7 +88,7 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    printf("[] Index count: %zu\n", geometry->indexCount);
    printf("[] Bias: "VEC3S"\n", VEC3(&geometry->bias));
    printf("[] Scale: "VEC3S"\n", VEC3(&geometry->scale));
-   printf("[] Texture range: %.0f\n", geometry->textureRange);
+   printf("[] Texture range: %u\n", geometry->textureRange);
    printf("[] Translation: "VEC3S"\n", VEC3(glhckObjectGetPosition(object)));
    printf("[] Rotation: "VEC3S"\n", VEC3(glhckObjectGetRotation(object)));
    printf("[] Scaling: "VEC3S"\n", VEC3(glhckObjectGetScale(object)));
@@ -374,7 +373,7 @@ NETHCKAPI void nethckClientImportObject(nethckImportObject *import)
    packet.geometry.indexType    = GLHCK_INDEX_INTEGER;
    packet.geometry.vertexCount  = import->geometry.vertexCount;
    packet.geometry.indexCount   = import->geometry.indexCount;
-   packet.geometry.textureRange = htonl(1);
+   packet.geometry.textureRange = 1;
 
    _nethckV3FToBams(&packet.view.translation, &import->view.translation);
    _nethckV3FToBams(&packet.view.rotation, &import->view.rotation);
@@ -409,7 +408,7 @@ NETHCKAPI void nethckClientObjectRender(const glhckObject *object)
    packet.geometry.indexCount  = geometry->indexCount;
    _nethckV3FToBams(&packet.geometry.scale, &geometry->scale);
    _nethckV3FToBams(&packet.geometry.bias, &geometry->bias);
-   packet.geometry.textureRange = htonl(*((unsigned int*)&geometry->textureRange)>>16);
+   packet.geometry.textureRange = geometry->textureRange;
 
    _nethckV3FToBams(&packet.view.translation, (glhckVector3f*)glhckObjectGetPosition(object));
    _nethckV3FToBams(&packet.view.rotation, (glhckVector3f*)glhckObjectGetRotation(object));
@@ -425,7 +424,7 @@ NETHCKAPI void nethckClientObjectRender(const glhckObject *object)
    printf("[] Index count: %zu\n", geometry->indexCount);
    printf("[] Bias: "VEC3S"\n", VEC3(&geometry->bias));
    printf("[] Scale: "VEC3S"\n", VEC3(&geometry->scale));
-   printf("[] Texture range: %.0f\n", geometry->textureRange);
+   printf("[] Texture range: %u\n", geometry->textureRange);
    printf("[] Translation: "VEC3S"\n", VEC3(glhckObjectGetPosition(object)));
    printf("[] Rotation: "VEC3S"\n", VEC3(glhckObjectGetRotation(object)));
    printf("[] Scaling: "VEC3S"\n", VEC3(glhckObjectGetScale(object)));
