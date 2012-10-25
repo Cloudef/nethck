@@ -31,8 +31,8 @@ static void handleGeometry(FILE *f, glhckObject *object, size_t vertexCount, siz
    char buffer[1024];
    size_t v = 0, i = 0;
    unsigned int index = 0;
-   glhckImportVertexData *vdata = NULL;
-   glhckImportIndexData *idata = NULL;
+   glhckVertexData3f *vdata = NULL;
+   glhckIndexi *idata = NULL;
    glhckGeometry *geometry = NULL;
    kmVec4 colorf;
 
@@ -90,13 +90,13 @@ static void handleGeometry(FILE *f, glhckObject *object, size_t vertexCount, siz
       i+=3;
    }
 
-   glhckObjectInsertVertices(object, vertexCount, GLHCK_VERTEX_V3F, vdata);
-   if (indexCount) glhckObjectInsertIndices(object, indexCount, GLHCK_INDEX_INTEGER, idata);
-
-   if (!(geometry = glhckObjectGetGeometry(object)))
+   if (!(geometry = glhckObjectNewGeometry(object)))
       goto fail;
 
+   glhckGeometrySetVertices(geometry, GLHCK_VERTEX_V3F, vdata, vertexCount);
+   if (indexCount) glhckGeometrySetIndices(geometry, GLHCK_INDEX_INTEGER, idata, indexCount);
    geometry->type = GLHCK_TRIANGLES;
+
    free(vdata);
    free(idata);
    return;
@@ -118,7 +118,7 @@ static unsigned int handleFifo(FILE *f)
    index = vertexCount = indexCount = 0;
    memset(buffer, 0, sizeof(buffer));
    while (fgets(buffer, sizeof(buffer), f)) {
-     printf("%s", buffer);
+      printf("%s", buffer);
       switch (index) {
          case TRANSLATION:
             if (!(object = glhckObjectNew())) goto fail;
@@ -179,13 +179,12 @@ int main(int argc, char **argv)
 
    atexit(removeFifo);
    while (1) {
-      handleFifo(f);
       nethckClientUpdate();
+      handleFifo(f);
    }
 
    fclose(f);
    removeFifo();
-
    nethckClientKill();
    glhckTerminate();
    return EXIT_SUCCESS;
