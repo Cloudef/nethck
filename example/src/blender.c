@@ -130,6 +130,7 @@ static unsigned int handleFifo(FILE *f)
             rotation.x *= kmPIUnder180;
             rotation.y *= kmPIUnder180;
             rotation.z *= kmPIUnder180;
+            printf("ROTATION: %f, %f, %f\n", rotation.x, rotation.y, rotation.z);
             glhckObjectRotation(object, &rotation);
             break;
          case SCALING:

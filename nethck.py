@@ -1,4 +1,5 @@
 import bpy
+import mathutils
 
 def r3d(v):
    return round(v[0],6), round(v[1],6), round(v[2],6)
@@ -74,15 +75,23 @@ def buildData(ob):
          lfl.append([tmpfaces[0], tmpfaces[1], tmpfaces[2]])
          lfl.append([tmpfaces[0], tmpfaces[2], tmpfaces[3]])
 
+def obPosition(ob):
+   return ob.matrix_local.to_translation()
+
+def obRotation(ob):
+   return ob.matrix_local.to_euler();
+
 def sendObject(ob):
    buildData(ob)
    f = open('/tmp/blender.fifo', 'w')
-   f.write(str(ob.location[0])+","+
-           str(ob.location[1])+","+
-           str(ob.location[2])+"\n")
-   f.write(str(ob.rotation_euler[0])+","+
-           str(ob.rotation_euler[1])+","+
-           str(ob.rotation_euler[2])+"\n")
+   position = obPosition(ob)
+   rotation = obRotation(ob)
+   f.write(str(position[0])+","+
+           str(position[1])+","+
+           str(position[2])+"\n")
+   f.write(str(rotation[0])+","+
+           str(rotation[1])+","+
+           str(rotation[2])+"\n")
    f.write(str(ob.scale[0])+","+
            str(ob.scale[1])+","+
            str(ob.scale[2])+"\n")
