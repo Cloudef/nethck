@@ -37,9 +37,11 @@ int main(int argc, char **argv)
    if (!glfwInit())
       return EXIT_FAILURE;
 
-   glfwOpenWindowHint(GLFW_DEPTH_BITS, 24);
-   if (!(window = glfwOpenWindow(WIDTH, HEIGHT, GLFW_WINDOWED, "client", NULL)))
+   glfwWindowHint(GLFW_DEPTH_BITS, 24);
+   if (!(window = glfwCreateWindow(WIDTH, HEIGHT, GLFW_WINDOWED, "client", NULL)))
       return EXIT_FAILURE;
+
+   glfwMakeContextCurrent(window);
 
    /* Turn on VSYNC if driver allows */
    glfwSwapInterval(1);
@@ -74,7 +76,7 @@ int main(int argc, char **argv)
       if (nethckClientUpdate()) {
          glhckClear();
          glhckRender();
-         glfwSwapBuffers();
+         glfwSwapBuffers(window);
       }
 
       if (fpsDelay < now) {
