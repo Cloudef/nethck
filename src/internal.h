@@ -35,17 +35,6 @@ typedef struct nethckVector2B {
    unsigned int x, y;
 } nethckVector2B;
 
-/* fifo types */
-typedef enum _nethckFifoType {
-   NETHCK_FIFO_TYPE_LISTEN,
-   NETHCK_FIFO_TYPE_RELAY,
-} _nethckFifoType;
-
-typedef struct _nethckFifo {
-   _nethckFifoType type;
-   unsigned int fd;
-} _nethckFifo;
-
 /* bams conversions */
 void _nethckV2FToBams(nethckVector2B *bv2, const glhckVector2f *v2);
 void _nethckV3FToBams(nethckVector3B *bv3, const glhckVector3f *v3);
