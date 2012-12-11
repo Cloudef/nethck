@@ -9,8 +9,6 @@ extern "C" {
 #  define _WIN32
 #endif /* _WIN32 */
 
-/* GLHCK specific defines */
-
 #if defined(NETHCK_DLL) && defined(_NETHCK_BUILD_DLL)
 #  error "You must not have both NETHCK_DLL and _NETHCK_BUILD_DLL defined"
 #endif
@@ -60,9 +58,6 @@ typedef struct nethckImportObject {
 /***
  * public api
  ***/
-
-/* init */
-NETHCKAPI int nethckInit(int argc, char **argv);
 
 /* client */
 NETHCKAPI int nethckClientInit(const char *host, int port);
