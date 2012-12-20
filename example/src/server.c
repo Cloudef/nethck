@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <glhck/glhck.h>
@@ -5,8 +6,6 @@
 
 int main(int argc, char **argv)
 {
-   nethckInit(argc, argv);
-
    if (!nethckServerInit(NULL, 5050))
       return EXIT_FAILURE;
 

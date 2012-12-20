@@ -2,6 +2,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <glhck/glhck.h>
 #include <glhck/nethck.h>
 #include <fcntl.h>
@@ -34,7 +36,6 @@ static void handleGeometry(FILE *f, glhckObject *object, size_t vertexCount, siz
    glhckVertexData3f *vdata = NULL;
    glhckIndexi *idata = NULL;
    glhckGeometry *geometry = NULL;
-   kmVec4 colorf;
 
    if (!vertexCount)
       goto fail;
@@ -169,7 +170,6 @@ int main(int argc, char **argv)
    if (!glhckInit(argc, argv))
       return EXIT_FAILURE;
 
-   nethckInit(argc, argv);
    if (!nethckClientInit(NULL, 5050))
       return EXIT_FAILURE;
 

@@ -52,7 +52,6 @@ int main(int argc, char **argv)
    if (!glhckDisplayCreate(WIDTH, HEIGHT, GLHCK_RENDER_AUTO))
       return EXIT_FAILURE;
 
-   nethckInit(argc, argv);
    if (!nethckClientInit(NULL, 5050))
       return EXIT_FAILURE;
 

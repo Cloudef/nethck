@@ -4,6 +4,15 @@ SET(NETHCK_NAME "NEThck Network Transparency")
 SET(NETHCK_DESCRIPTION "Provides networking functionality to glhck for sharing geometry beetwen applications")
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${nethck_SOURCE_DIR}/CMake/modules)
 
+# GLHCK options
+SET(GLHCK_IMPORT_ASSIMP OFF CACHE BOOL "We don't need assimp")
+SET(GLHCK_IMPORT_OPENCTM OFF CACHE BOOL "We don't need openctm")
+SET(GLHCK_IMPORT_MMD OFF CACHE BOOL "We don't need mmd")
+SET(GLHCK_IMPORT_BMP OFF CACHE BOOL "We don't need bmp")
+SET(GLHCK_IMPORT_PNG OFF CACHE BOOL "We don't need png")
+SET(GLHCK_IMPORT_TGA OFF CACHE BOOL "We don't need tga")
+SET(GLHCK_IMPORT_JPEG OFF CACHE BOOL "We don't need jpeg")
+
 # Debug build
 SET(CMAKE_BUILD_TYPE Debug)
 
@@ -47,4 +56,4 @@ ADD_SUBDIRECTORY(src)
 ADD_SUBDIRECTORY(example)
 
 # Install
-INSTALL(FILES include/glhck/nethck.h DESTINATION include/glhck)
+FILE(COPY include/glhck/nethck.h DESTINATION include/glhck)
