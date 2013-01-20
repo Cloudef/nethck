@@ -13,22 +13,6 @@ typedef enum _nethckReturnValue {
    RETURN_FALSE   =  !RETURN_TRUE
 } _nethckReturnValue;
 
-/* \brief Bams v3 */
-typedef struct nethckVector3B {
-   unsigned int x, y, z;
-} nethckVector3B;
-
-/* \brief Bams v2 */
-typedef struct nethckVector2B {
-   unsigned int x, y;
-} nethckVector2B;
-
-/* bams conversions */
-void _nethckV2FToBams(nethckVector2B *bv2, const glhckVector2f *v2);
-void _nethckV3FToBams(nethckVector3B *bv3, const glhckVector3f *v3);
-void _nethckBamsToV2F(glhckVector2f *v2, const nethckVector2B *bv2);
-void _nethckBamsToV3F(glhckVector3f *v3, const nethckVector3B *bv3);
-
 /* geometry helpers */
 void _nethckGeometryVertexDataAndSize(glhckGeometry *geometry, void **data, size_t *size);
 void _nethckGeometryIndexDataAndSize(glhckGeometry *geometry, void **data, size_t *size);

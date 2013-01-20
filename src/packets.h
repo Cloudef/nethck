@@ -13,7 +13,7 @@ typedef struct nethckMaterial {
 
 /* \brief representation of object's view */
 typedef struct nethckView {
-   nethckVector3B translation, rotation, scaling;
+   glhckVector3f translation, rotation, scaling;
 } nethckView;
 
 /* \brief represntation of object's geometry */
@@ -23,8 +23,8 @@ typedef struct nethckGeometry {
    glhckGeometryIndexType indexType;
    size_t vertexCount;
    size_t indexCount;
-   nethckVector3B bias;
-   nethckVector3B scale;
+   glhckVector3f bias;
+   glhckVector3f scale;
    unsigned short textureRange;
 } nethckGeometry;
 

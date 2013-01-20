@@ -26,7 +26,6 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    void *vdata = NULL, *idata = NULL;
    size_t vsize = 0, isize = 0;
    unsigned int tmp;
-   glhckVector3f translation, rotation, scaling;
    glhckObject *object = NULL;
    glhckGeometry *geometry = NULL;
 
@@ -45,13 +44,9 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    geometry->indexType   = packet->geometry.indexType;
    geometry->vertexCount = packet->geometry.vertexCount;
    geometry->indexCount  = packet->geometry.indexCount;
-   _nethckBamsToV3F(&geometry->bias, &packet->geometry.bias);
-   _nethckBamsToV3F(&geometry->scale, &packet->geometry.scale);
+   memcpy(&geometry->bias, &packet->geometry.bias, sizeof(glhckVector3f));
+   memcpy(&geometry->scale, &packet->geometry.scale, sizeof(glhckVector3f));
    geometry->textureRange = packet->geometry.textureRange;
-
-   _nethckBamsToV3F(&translation, &packet->view.translation);
-   _nethckBamsToV3F(&rotation, &packet->view.rotation);
-   _nethckBamsToV3F(&scaling, &packet->view.scaling);
 
    vsize = geometry->vertexCount * glhckVertexTypeElementSize(geometry->vertexType);
    if (!(vdata = malloc(vsize)))
@@ -71,9 +66,9 @@ static void _nethckClientManagePacketObject(unsigned char *data)
       NULLDO(free, idata);
    }
 
-   glhckObjectScale(object, (kmVec3*)&scaling);
-   glhckObjectPosition(object, (kmVec3*)&translation);
-   glhckObjectRotation(object, (kmVec3*)&rotation);
+   glhckObjectScale(object, (kmVec3*)&packet->view.scaling);
+   glhckObjectPosition(object, (kmVec3*)&packet->view.translation);
+   glhckObjectRotation(object, (kmVec3*)&packet->view.rotation);
    glhckObjectColor(object, &packet->material.color);
 
    glhckObjectUpdate(object);
@@ -375,9 +370,9 @@ NETHCKAPI void nethckClientImportObject(nethckImportObject *import)
    packet.geometry.indexCount   = import->geometry.indexCount;
    packet.geometry.textureRange = 1;
 
-   _nethckV3FToBams(&packet.view.translation, &import->view.translation);
-   _nethckV3FToBams(&packet.view.rotation, &import->view.rotation);
-   _nethckV3FToBams(&packet.view.scaling, &import->view.scaling);
+   memcpy(&packet.view.translation, &import->view.translation, sizeof(glhckVector3f));
+   memcpy(&packet.view.rotation, &import->view.rotation, sizeof(glhckVector3f));
+   memcpy(&packet.view.scaling, &import->view.scaling, sizeof(glhckVector3f));
    memcpy(&packet.material.color, &import->material.color, sizeof(glhckColorb));
 
    vsize = packet.geometry.vertexCount * glhckVertexTypeElementSize(packet.geometry.vertexType);
@@ -406,13 +401,13 @@ NETHCKAPI void nethckClientObjectRender(const glhckObject *object)
    packet.geometry.indexType   = geometry->indexType;
    packet.geometry.vertexCount = geometry->vertexCount;
    packet.geometry.indexCount  = geometry->indexCount;
-   _nethckV3FToBams(&packet.geometry.scale, &geometry->scale);
-   _nethckV3FToBams(&packet.geometry.bias, &geometry->bias);
+   memcpy(&packet.geometry.scale, &geometry->scale, sizeof(glhckVector3f));
+   memcpy(&packet.geometry.bias, &geometry->bias, sizeof(glhckVector3f));
    packet.geometry.textureRange = geometry->textureRange;
 
-   _nethckV3FToBams(&packet.view.translation, (glhckVector3f*)glhckObjectGetPosition(object));
-   _nethckV3FToBams(&packet.view.rotation, (glhckVector3f*)glhckObjectGetRotation(object));
-   _nethckV3FToBams(&packet.view.scaling, (glhckVector3f*)glhckObjectGetScale(object));
+   memcpy(&packet.view.translation, (glhckVector3f*)glhckObjectGetPosition(object), sizeof(glhckVector3f));
+   memcpy(&packet.view.rotation, (glhckVector3f*)glhckObjectGetRotation(object), sizeof(glhckVector3f));
+   memcpy(&packet.view.scaling, (glhckVector3f*)glhckObjectGetScale(object), sizeof(glhckVector3f));
    memcpy(&packet.material.color, glhckObjectGetColor(object), sizeof(glhckColorb));
 
 #if 0

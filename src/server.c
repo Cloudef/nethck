@@ -106,15 +106,7 @@ static void _nethckEnetDestroy(void)
 static void _nethckServerManagePacketObject(unsigned char *data)
 {
    nethckObjectPacket *packet = (nethckObjectPacket*)data;
-   glhckVector3f bias, scale;
-   glhckVector3f translation, rotation, scaling;
    unsigned int tmp;
-
-   _nethckBamsToV3F(&bias, &packet->geometry.bias);
-   _nethckBamsToV3F(&scale, &packet->geometry.scale);
-   _nethckBamsToV3F(&translation, &packet->view.translation);
-   _nethckBamsToV3F(&rotation, &packet->view.rotation);
-   _nethckBamsToV3F(&scaling, &packet->view.scaling);
 
    printf("-- Echo %p from Client -->\n", packet);
    printf("[] Geometry type: %u\n", packet->geometry.type);
@@ -122,12 +114,12 @@ static void _nethckServerManagePacketObject(unsigned char *data)
    printf("[] Index type: %d\n", packet->geometry.indexType);
    printf("[] Vertex count: %zu\n", packet->geometry.vertexCount);
    printf("[] Index count: %zu\n", packet->geometry.indexCount);
-   printf("[] Bias: "VEC3S"\n", VEC3(&bias));
-   printf("[] Scale: "VEC3S"\n", VEC3(&scale));
+   printf("[] Bias: "VEC3S"\n", VEC3(&packet->geometry.bias));
+   printf("[] Scale: "VEC3S"\n", VEC3(&packet->geometry.scale));
    printf("[] Texture range: %u\n", packet->geometry.textureRange);
-   printf("[] Translation: "VEC3S"\n", VEC3(&translation));
-   printf("[] Rotation: "VEC3S"\n", VEC3(&rotation));
-   printf("[] Scaling: "VEC3S"\n", VEC3(&scaling));
+   printf("[] Translation: "VEC3S"\n", VEC3(&packet->view.translation));
+   printf("[] Rotation: "VEC3S"\n", VEC3(&packet->view.rotation));
+   printf("[] Scaling: "VEC3S"\n", VEC3(&packet->view.scaling));
    printf("[] Color: "COLBS"\n", COLB(&packet->material.color));
    printf("<---\n");
 }
