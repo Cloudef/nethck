@@ -124,7 +124,7 @@ def sendObject(ob, edited):
 
    f = open(fifoPath, 'w')
    if f:
-      obId = hash(ob.name)
+      obId = hash(ob.name) % (2**32)
       shouldUpdateGeometry = geometryUpdate.get(obId, True)
       position = obPosition(ob)
       rotation = obRotation(ob)
