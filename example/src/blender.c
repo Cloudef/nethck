@@ -133,9 +133,9 @@ static unsigned int handleFifo(FILE *f)
             sscanf(buffer, "%u", &id);
             object = nethckClientObjectForId(id);
             if (object) glhckObjectRef(object);
+            if (!object && !(object = glhckObjectNew())) goto fail;
             break;
          case TRANSLATION:
-            if (!object && !(object = glhckObjectNew())) goto fail;
             sscanf(buffer, "%f,%f,%f", &translation.x, &translation.y, &translation.z);
             glhckObjectPosition(object, &translation);
             break;
@@ -158,17 +158,23 @@ static unsigned int handleFifo(FILE *f)
          case GEOMETRY:
             sscanf(buffer, "%d,%d", &vertexCount, &indexCount);
             handleGeometry(f, object, vertexCount, indexCount);
+
+            if (object) {
+               nethckClientObjectRender(id, object);
+               glhckObjectFree(object);
+               object = NULL;
+               index = vertexCount = indexCount = 0;
+            }
+
             break;
          default:
             break;
-      }; ++index;
+      };
+      if (object) ++index;
       memset(buffer, 0, sizeof(buffer));
    }
 
-   if (object) {
-      nethckClientObjectRender(id, object);
-      glhckObjectFree(object);
-   }
+   if (object) glhckObjectFree(object);
    return index;
 
 fail:
