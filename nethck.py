@@ -1,98 +1,112 @@
 import bpy
 import mathutils
 
+#
+# Vertexdata conversion to OpenGL/GLhck friendly format
+#
+
+# Round 3d vector
 def r3d(v):
    return round(v[0],6), round(v[1],6), round(v[2],6)
 
+# Round 2d vector
 def r2d(v):
    return round(v[0],6), round(v[1],6)
 
-geometryUpdate={}
-lvl=[]
-lnl=[]
-luvl=[]
-lfl=[]
+def buildData(mesh):
+   storedData = {}
+   indices = []
+   vertices = []
+   normals = []
+   uvs = []
+   vertexCount = 0
 
-def buildData(msh):
-   global lvl
-   global lnl
-   global luvl
-   global lfl
-
-   lvdic = {}
-   lfl = []
-   lvl = []
-   lnl = []
-   luvl = []
-   lvcnt = 0
-   isSmooth = False
+   # Check if mesh has UV
    hasUV = True
-
-   if (len(msh.tessface_uv_textures)>0):
-      if (msh.tessface_uv_textures.active is None):
+   if (len(mesh.tessface_uv_textures)>0):
+      if (mesh.tessface_uv_textures.active is None):
          hasUV = False
    else:
       hasUV = False
 
+   # Get active UV
    if (hasUV):
-      activeUV = msh.tessface_uv_textures.active.data
+      activeUV = mesh.tessface_uv_textures.active.data
 
-   for i,f in enumerate(msh.tessfaces):
+   for i,f in enumerate(mesh.tessfaces):
       isSmooth = f.use_smooth
-      tmpfaces = []
+      tmpFaces = []
       for j,v in enumerate(f.vertices):
-         vec = msh.vertices[v].co
-         vec = r3d(vec)
+         # Get vertex
+         vertex = mesh.vertices[v].co
+         vertex = r3d(vertex)
+
+         # Get normal
          if (isSmooth):
-            nor = msh.vertices[v].normal
+            normal = mesh.vertices[v].normal
          else:
-            nor = f.normal;
-         nor = r3d(nor)
+            normal = f.normal;
+         normal = r3d(normal)
 
+         # Get uv coordinate
          if (hasUV):
-            co = activeUV[i].uv[j]
-            co = r2d(co)
+            coord = activeUV[i].uv[j]
+            coord = r2d(coord)
          else:
-            co = (0.0, 0.0)
+            coord = (0.0, 0.0)
 
-         key = vec, nor, co
-         vinx = lvdic.get(key)
+         # Check for duplicate vertex
+         key = vertex, normal, coord
+         vertexIndex = storedData.get(key)
 
-         if (vinx is None):
-            lvdic[key] = lvcnt
-            lvl.append(vec)
-            lnl.append(nor)
-            luvl.append(co)
-            tmpfaces.append(lvcnt)
-            lvcnt+=1
+         if (vertexIndex is None):
+            # Store new vertex
+            storedData[key] = vertexCount
+            vertices.append(vertex)
+            normals.append(normal)
+            uvs.append(coord)
+            tmpFaces.append(vertexCount)
+            vertexCount+=1
          else:
-            inx = lvdic[key]
-            tmpfaces.append(inx)
+            # Reuse the vertex from dictionary
+            tmpFaces.append(vertexIndex)
 
-      if (len(tmpfaces)==3):
-         lfl.append(tmpfaces)
+      # Is the format already triangles?
+      if (len(tmpFaces)==3):
+         indices.append(tmpFaces)
       else:
-         lfl.append([tmpfaces[0], tmpfaces[1], tmpfaces[2]])
-         lfl.append([tmpfaces[0], tmpfaces[2], tmpfaces[3]])
+         indices.append([tmpFaces[0], tmpFaces[1], tmpFaces[2]])
+         indices.append([tmpFaces[0], tmpFaces[2], tmpFaces[3]])
 
+   return {'vertices':vertices, 'normals':normals, 'uvs':uvs, 'indices':indices}
+
+#
+# FIFO pipe logic with nethck's blender example
+#
+
+geometryUpdate={}
+
+# Return object's position
 def obPosition(ob):
    return ob.matrix_local.to_translation()
 
+# Return object's rotation
 def obRotation(ob):
    return ob.matrix_local.to_euler();
 
+# Dump object to FIFO
 def sendObject(ob, edited):
    global geometryUpdate
 
    f = open('/tmp/blender.fifo', 'w')
    if f:
-      obid = hash(ob.name)
-      shouldUpdateGeometry = geometryUpdate.get(obid, True)
+      obId = hash(ob.name)
+      shouldUpdateGeometry = geometryUpdate.get(obId, True)
       position = obPosition(ob)
       rotation = obRotation(ob)
 
       if ob.mode == 'OBJECT':
-         f.write(str(obid)+"\n")
+         f.write(str(obId)+"\n")
          f.write(str(position[0])+","+
                  str(position[1])+","+
                  str(position[2])+"\n")
@@ -104,39 +118,55 @@ def sendObject(ob, edited):
                  str(ob.scale[2])+"\n")
          f.write("%f,%f,%f,%f\n"%tuple(ob.color))
 
-         msh = ob.to_mesh(bpy.context.scene, True, "PREVIEW")
+         # Convert the object to mesh and write it's vertexData if needed
          if shouldUpdateGeometry:
-            buildData(msh)
-            f.write(str(len(lvl))+","+
-                    str(len(lfl)*3)+"\n")
-            for i in range(0,len(lvl)):
-               f.write("%f,%f,%f\n"%tuple(lvl[i]))
-               f.write("%f,%f,%f\n"%tuple(lnl[i]))
-               f.write("%f,%f\n"%tuple(luvl[i]))
+            mesh = ob.to_mesh(bpy.context.scene, True, "PREVIEW")
 
-            for i in lfl:
+            # Convert to OpenGL/GLhck friendly vertex data
+            vertexData = buildData(mesh)
+            vertices = vertexData['vertices']
+            normals = vertexData['normals']
+            uvs = vertexData['uvs']
+            indices = vertexData['indices']
+
+            # Length of vertices/indices <int, int>
+            f.write(str(len(vertices))+","+
+                    str(len(indices)*3)+"\n")
+
+            # Write vertices, normals and uvs
+            for i in range(0,len(vertices)):
+               f.write("%f,%f,%f\n"%tuple(vertices[i]))
+               f.write("%f,%f,%f\n"%tuple(normals[i]))
+               f.write("%f,%f\n"%tuple(uvs[i]))
+
+            # Write indices
+            for i in indices:
                f.write("%d,%d,%d\n"%tuple(i))
          else:
+            # No need to send the geometry data, so inform 0,0 length
             f.write("0,0\n")
 
+         # Flush and close FIFO
          f.flush()
          f.close()
 
-      geometryUpdate[obid] = edited
+         # Store object edit state
+         geometryUpdate[obId] = edited
 
-def scene_update(context):
+# UpdateAPI callback
+def sceneUpdate(context):
    if bpy.data.objects.is_updated:
       print("One or more objects were updated!")
       for ob in bpy.data.objects:
-         if ob.type != 'MESH':
-            continue
-         if ob.is_updated:
-            print("=>", ob.name)
-            sendObject(ob, False)
-         else:
-            mesh = bpy.data.meshes.get(ob.data.name)
-            if mesh.is_updated:
-               print("=>", mesh)
-               sendObject(ob, True)
+         if ob.type == 'MESH':
+            if ob.is_updated:
+               print("=>", ob.name)
+               sendObject(ob, False)
+            else:
+               mesh = bpy.data.meshes.get(ob.data.name)
+               if mesh.is_updated:
+                  print("=>", mesh)
+                  sendObject(ob, True)
 
-bpy.app.handlers.scene_update_post.append(scene_update)
+# Setup callback function to UpdateAPI
+bpy.app.handlers.scene_update_post.append(sceneUpdate)
