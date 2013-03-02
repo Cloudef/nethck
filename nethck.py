@@ -115,6 +115,13 @@ def sendObject(ob, edited):
    global geometryUpdate
    global fifoPath
 
+   # Check for fifo
+   if not os.path.exists(fifoPath):
+      geometryUpdate={}
+      removeUpdateCallback()
+      bpy.types.Scene.Nethck = True
+      return
+
    f = open(fifoPath, 'w')
    if f:
       obId = hash(ob.name)
@@ -200,7 +207,7 @@ def registerUpdateCallback():
 def removeUpdateCallback():
    for x in bpy.app.handlers.scene_update_post[:]:
       if x == sceneUpdate:
-         bpy.app.handlers.scene_update_post.remove(sceneUpdate)
+         bpy.app.handlers.scene_update_post.remove(x)
 
 # Nethck synchorization check box
 class nethckCheck(bpy.types.Operator):
@@ -220,10 +227,12 @@ class nethckCheck(bpy.types.Operator):
          geometryUpdate={}
          sceneUpdateFull()
          registerUpdateCallback()
+         bpy.types.Scene.Nethck = False
       else:
          # Disabled
          geometryUpdate={}
          removeUpdateCallback()
+         bpy.types.Scene.Nethck = True
 
       return {'FINISHED'}
 
