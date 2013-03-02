@@ -33,6 +33,16 @@ void _nethckGeometryVertexDataAndSize(glhckGeometry *geometry, void **data, size
          *data = geometry->vertices.v2s;
          break;
 
+      case GLHCK_VERTEX_V3FS:
+         *size = geometry->vertexCount * sizeof(glhckVertexData3fs);
+         *data = geometry->vertices.v3fs;
+         break;
+
+      case GLHCK_VERTEX_V2FS:
+         *size = geometry->vertexCount * sizeof(glhckVertexData2fs);
+         *data = geometry->vertices.v2fs;
+         break;
+
       case GLHCK_VERTEX_V3F:
          *size = geometry->vertexCount * sizeof(glhckVertexData3f);
          *data = geometry->vertices.v3f;
