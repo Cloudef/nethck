@@ -18,22 +18,21 @@ typedef struct nethckView {
 
 /* \brief represntation of object's geometry */
 typedef struct nethckGeometry {
-   unsigned int type;
-   glhckGeometryVertexType vertexType;
-   glhckGeometryIndexType indexType;
-   size_t vertexCount;
-   size_t indexCount;
    glhckVector3f bias;
    glhckVector3f scale;
-   unsigned short textureRange;
+   int vertexCount, indexCount;
+   int textureRange;
+   glhckGeometryType type;
+   glhckGeometryVertexType vertexType;
+   glhckGeometryIndexType indexType;
 } nethckGeometry;
 
 /* \brief object packet */
 typedef struct nethckObjectPacket {
-   unsigned char type;
    struct nethckGeometry geometry;
    struct nethckView view;
    struct nethckMaterial material;
+   unsigned char type;
 } nethckObjectPacket;
 
 /* \brief generic packet */

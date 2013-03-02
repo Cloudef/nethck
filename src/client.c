@@ -25,7 +25,6 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    unsigned char *offset;
    void *vdata = NULL, *idata = NULL;
    size_t vsize = 0, isize = 0;
-   unsigned int tmp;
    glhckObject *object = NULL;
    glhckGeometry *geometry = NULL;
 
@@ -79,8 +78,8 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    printf("[] Geometry type: %u\n", geometry->type);
    printf("[] Vertex type: %d\n", geometry->vertexType);
    printf("[] Index type: %d\n", geometry->indexType);
-   printf("[] Vertex count: %zu\n", geometry->vertexCount);
-   printf("[] Index count: %zu\n", geometry->indexCount);
+   printf("[] Vertex count: %d\n", geometry->vertexCount);
+   printf("[] Index count: %d\n", geometry->indexCount);
    printf("[] Bias: "VEC3S"\n", VEC3(&geometry->bias));
    printf("[] Scale: "VEC3S"\n", VEC3(&geometry->scale));
    printf("[] Texture range: %u\n", geometry->textureRange);
@@ -310,7 +309,7 @@ NETHCKAPI int nethckClientCreate(const char *host, int port)
 
    /* initialize enet */
    if (_nethckEnetInit(host, port) != RETURN_OK)
-      goto fail_connect;
+      goto fail;
 
    _nethckClientInitialized = 1;
    DEBUG(NETHCK_DBG_CRAP, "Connected to server [%s:%d]",
@@ -319,10 +318,9 @@ NETHCKAPI int nethckClientCreate(const char *host, int port)
    RET(0, "%d", RETURN_OK);
    return RETURN_OK;
 
-fail_connect:
+fail:
    DEBUG(NETHCK_DBG_ERROR, "Failed to connect to server [%s:%d]",
          host?host:"127.0.0.1", port);
-fail:
    _nethckEnetDestroy();
    RET(0, "%d", RETURN_FAIL);
    return RETURN_FAIL;

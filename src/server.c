@@ -106,14 +106,13 @@ static void _nethckEnetDestroy(void)
 static void _nethckServerManagePacketObject(unsigned char *data)
 {
    nethckObjectPacket *packet = (nethckObjectPacket*)data;
-   unsigned int tmp;
 
    printf("-- Echo %p from Client -->\n", packet);
    printf("[] Geometry type: %u\n", packet->geometry.type);
    printf("[] Vertex type: %d\n", packet->geometry.vertexType);
    printf("[] Index type: %d\n", packet->geometry.indexType);
-   printf("[] Vertex count: %zu\n", packet->geometry.vertexCount);
-   printf("[] Index count: %zu\n", packet->geometry.indexCount);
+   printf("[] Vertex count: %d\n", packet->geometry.vertexCount);
+   printf("[] Index count: %d\n", packet->geometry.indexCount);
    printf("[] Bias: "VEC3S"\n", VEC3(&packet->geometry.bias));
    printf("[] Scale: "VEC3S"\n", VEC3(&packet->geometry.scale));
    printf("[] Texture range: %u\n", packet->geometry.textureRange);
@@ -209,7 +208,7 @@ NETHCKAPI int nethckServerCreate(const char *host, int port)
 
    /* initialize enet */
    if (_nethckEnetInit(host, port) != RETURN_OK)
-      goto fail_host;
+      goto fail;
 
    _nethckServerInitialized = 1;
    DEBUG(NETHCK_DBG_CRAP, "Started ENet server [%s:%d]",
@@ -218,10 +217,9 @@ NETHCKAPI int nethckServerCreate(const char *host, int port)
    RET(0, "%d", RETURN_OK);
    return RETURN_OK;
 
-fail_host:
+fail:
    DEBUG(NETHCK_DBG_ERROR, "Failed to create ENet server [%s:%d]",
          host?host:"0.0.0.0", port);
-fail:
    _nethckEnetDestroy();
    RET(0, "%d", RETURN_FAIL);
    return RETURN_FAIL;
