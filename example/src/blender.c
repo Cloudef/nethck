@@ -167,10 +167,10 @@ int main(int argc, char **argv)
 {
    FILE *f;
 
-   if (!glhckInit(argc, argv))
+   if (!glhckContextCreate(argc, argv))
       return EXIT_FAILURE;
 
-   if (!nethckClientInit(NULL, 5050))
+   if (!nethckClientCreate(NULL, 5050))
       return EXIT_FAILURE;
 
    removeFifo();
@@ -186,7 +186,7 @@ int main(int argc, char **argv)
 
    fclose(f);
    removeFifo();
-   nethckClientKill();
-   glhckTerminate();
+   nethckClientTerminate();
+   glhckContextTerminate();
    return EXIT_SUCCESS;
 }

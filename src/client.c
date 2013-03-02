@@ -297,13 +297,13 @@ fail:
 /* public api */
 
 /* \brief initialize nethck server */
-NETHCKAPI int nethckClientInit(const char *host, int port)
+NETHCKAPI int nethckClientCreate(const char *host, int port)
 {
    CALL(0, "%s, %d", host, port);
 
    /* reinit, if initialized */
    if (_nethckClientInitialized)
-      nethckClientKill();
+      nethckClientTerminate();
 
    /* null struct */
    memset(&_NETHCKclient, 0, sizeof(__NETHCKclient));
@@ -329,7 +329,7 @@ fail:
 }
 
 /* \brief kill nethck server */
-NETHCKAPI void nethckClientKill(void)
+NETHCKAPI void nethckClientTerminate(void)
 {
    TRACE(0);
 

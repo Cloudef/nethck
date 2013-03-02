@@ -6,7 +6,7 @@
 
 int main(int argc, char **argv)
 {
-   if (!nethckServerInit(NULL, 5050))
+   if (!nethckServerCreate(NULL, 5050))
       return EXIT_FAILURE;
 
    int packets = 0;
@@ -16,6 +16,6 @@ int main(int argc, char **argv)
          break;
    }
 
-   nethckServerKill();
+   nethckServerTerminate();
    return EXIT_SUCCESS;
 }

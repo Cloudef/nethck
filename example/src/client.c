@@ -8,13 +8,13 @@
 
 static int RUNNING = 0;
 static int WIDTH = 800, HEIGHT = 480;
-static int close_callback(GLFWwindow window)
+static int close_callback(GLFWwindow *window)
 {
    RUNNING = 0;
    return 1;
 }
 
-static void resize_callback(GLFWwindow window, int width, int height)
+static void resize_callback(GLFWwindow *window, int width, int height)
 {
    WIDTH = width; HEIGHT = height;
    glhckDisplayResize(width, height);
@@ -22,7 +22,7 @@ static void resize_callback(GLFWwindow window, int width, int height)
 
 int main(int argc, char **argv)
 {
-   GLFWwindow window;
+   GLFWwindow *window;
    glhckCamera *camera;
    float          now          = 0;
    float          last         = 0;
@@ -38,7 +38,7 @@ int main(int argc, char **argv)
       return EXIT_FAILURE;
 
    glfwWindowHint(GLFW_DEPTH_BITS, 24);
-   if (!(window = glfwCreateWindow(WIDTH, HEIGHT, GLFW_WINDOWED, "client", NULL)))
+   if (!(window = glfwCreateWindow(WIDTH, HEIGHT, "client", NULL, NULL)))
       return EXIT_FAILURE;
 
    glfwMakeContextCurrent(window);
@@ -46,13 +46,13 @@ int main(int argc, char **argv)
    /* Turn on VSYNC if driver allows */
    glfwSwapInterval(1);
 
-   if (!glhckInit(argc, argv))
+   if (!glhckContextCreate(argc, argv))
       return EXIT_FAILURE;
 
    if (!glhckDisplayCreate(WIDTH, HEIGHT, GLHCK_RENDER_AUTO))
       return EXIT_FAILURE;
 
-   if (!nethckClientInit(NULL, 5050))
+   if (!nethckClientCreate(NULL, 5050))
       return EXIT_FAILURE;
 
    if (!(camera = glhckCameraNew()))
@@ -61,8 +61,8 @@ int main(int argc, char **argv)
    glhckCameraRange(camera, 1.0f, 1000.0f);
    glhckObjectPositionf(glhckCameraGetObject(camera), 0.0f, 0.0f, -5.0f);
 
-   glfwSetWindowCloseCallback(close_callback);
-   glfwSetWindowSizeCallback(resize_callback);
+   glfwSetWindowCloseCallback(window, close_callback);
+   glfwSetWindowSizeCallback(window, resize_callback);
 
    RUNNING = 1;
    while (RUNNING && glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS) {
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 
       glhckCameraUpdate(camera);
       if (nethckClientUpdate()) {
-         glhckClear();
+         glhckRenderClear(GLHCK_COLOR_BUFFER | GLHCK_DEPTH_BUFFER);
          glhckRender();
          glfwSwapBuffers(window);
       }
@@ -90,8 +90,8 @@ int main(int argc, char **argv)
       duration += delta;
    }
 
-   nethckClientKill();
-   glhckTerminate();
+   nethckClientTerminate();
+   glhckContextTerminate();
    glfwTerminate();
    return EXIT_SUCCESS;
 }

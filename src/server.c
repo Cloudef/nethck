@@ -196,13 +196,13 @@ static int _nethckEnetUpdate(void)
 /* public api */
 
 /* \brief initialize nethck server */
-NETHCKAPI int nethckServerInit(const char *host, int port)
+NETHCKAPI int nethckServerCreate(const char *host, int port)
 {
    CALL(0, "%s, %d", host, port);
 
    /* reinit, if initialized */
    if (_nethckServerInitialized)
-      nethckServerKill();
+      nethckServerTerminate();
 
    /* null struct */
    memset(&_NETHCKserver, 0, sizeof(__NETHCKserver));
@@ -228,7 +228,7 @@ fail:
 }
 
 /* \brief kill nethck server */
-NETHCKAPI void nethckServerKill(void)
+NETHCKAPI void nethckServerTerminate(void)
 {
    TRACE(0);
 

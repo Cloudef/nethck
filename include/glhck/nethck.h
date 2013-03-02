@@ -60,15 +60,15 @@ typedef struct nethckImportObject {
  ***/
 
 /* client */
-NETHCKAPI int nethckClientInit(const char *host, int port);
-NETHCKAPI void nethckClientKill(void);
+NETHCKAPI int nethckClientCreate(const char *host, int port);
+NETHCKAPI void nethckClientTerminate(void);
 NETHCKAPI int nethckClientUpdate(void);
 NETHCKAPI void nethckClientObjectRender(const glhckObject *object);
 NETHCKAPI void nethckClientImportObject(nethckImportObject *import);
 
 /* server */
-NETHCKAPI int nethckServerInit(const char *host, int port);
-NETHCKAPI void nethckServerKill(void);
+NETHCKAPI int nethckServerCreate(const char *host, int port);
+NETHCKAPI void nethckServerTerminate(void);
 NETHCKAPI int nethckServerUpdate(void);
 NETHCKAPI unsigned int nethckServerClientCount(void);
 
