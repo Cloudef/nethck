@@ -7,6 +7,7 @@
 #include <glhck/glhck.h>
 #include <glhck/nethck.h>
 #include <fcntl.h>
+#include <signal.h>
 
 enum {
    ID,
@@ -27,6 +28,12 @@ enum {
 static void removeFifo(void)
 {
    unlink("/tmp/blender.fifo");
+}
+
+static void sigInt(int sig)
+{
+   removeFifo();
+   exit(sig);
 }
 
 static void handleGeometry(FILE *f, glhckObject *object, size_t vertexCount, size_t indexCount)
@@ -179,6 +186,9 @@ int main(int argc, char **argv)
    if (!nethckClientCreate(NULL, 5050))
       return EXIT_FAILURE;
 
+   signal(SIGQUIT, sigInt);
+   signal(SIGINT, sigInt);
+   atexit(removeFifo);
    removeFifo();
    mkfifo("/tmp/blender.fifo", 0600);
    if (!(f = fopen("/tmp/blender.fifo", "r")))
