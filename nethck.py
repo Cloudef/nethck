@@ -1,5 +1,6 @@
 import bpy
 from bpy.props import BoolProperty
+import os.path
 import mathutils
 
 bl_info = {
@@ -211,9 +212,7 @@ class nethckCheck(bpy.types.Operator):
       global geometryUpdate
       global fifoPath
       if bpy.types.Scene.Nethck:
-         try:
-            with open('fifoPath') as f: pass
-         except IOError as e:
+         if not os.path.exists(fifoPath):
             self.report({'ERROR'}, "Blender nethck client is not running!")
             return {'FINISHED'}
 
