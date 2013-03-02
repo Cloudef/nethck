@@ -1,5 +1,18 @@
 import bpy
+from bpy.props import BoolProperty
 import mathutils
+
+bl_info = {
+    "name": "NEThck Synchorization",
+    "description": "Synchorizes current scene over nethck 'protocol'",
+    "author": "Jari Vetoniemi",
+    "version": (1, 0),
+    "blender": (2, 66, 0),
+    "location": "Render > Nethck Render",
+    "warning": "Needs blender nethck client running (Linux only)", # used for warning icon and text in addons panel
+    "wiki_url": "",
+    "tracker_url": "",
+    "category": "Development"}
 
 #
 # Vertexdata conversion to OpenGL/GLhck friendly format
@@ -84,7 +97,9 @@ def buildData(mesh):
 # FIFO pipe logic with nethck's blender example
 #
 
+# Dictionary for storing object's geometry update state
 geometryUpdate={}
+fifoPath='/tmp/blender.fifo'
 
 # Return object's position
 def obPosition(ob):
@@ -97,8 +112,9 @@ def obRotation(ob):
 # Dump object to FIFO
 def sendObject(ob, edited):
    global geometryUpdate
+   global fifoPath
 
-   f = open('/tmp/blender.fifo', 'w')
+   f = open(fifoPath, 'w')
    if f:
       obId = hash(ob.name)
       shouldUpdateGeometry = geometryUpdate.get(obId, True)
@@ -168,5 +184,79 @@ def sceneUpdate(context):
                   print("=>", mesh)
                   sendObject(ob, True)
 
-# Setup callback function to UpdateAPI
-bpy.app.handlers.scene_update_post.append(sceneUpdate)
+# Update whole scene
+def sceneUpdateFull():
+   for ob in bpy.data.objects:
+      if ob.type == 'MESH':
+         sendObject(ob, False)
+
+# Register update callback
+def registerUpdateCallback():
+   removeUpdateCallback()
+   bpy.app.handlers.scene_update_post.append(sceneUpdate)
+
+# Remove update callback
+def removeUpdateCallback():
+   for x in bpy.app.handlers.scene_update_post[:]:
+      if x == sceneUpdate:
+         bpy.app.handlers.scene_update_post.remove(sceneUpdate)
+
+# Nethck synchorization check box
+class nethckCheck(bpy.types.Operator):
+   bl_idname = 'render.nethck'
+   bl_label = 'NEThck Synchorization'
+   bl_description = 'Synchorize over nethck \'protocol\''
+
+   def execute(self, context):
+      global geometryUpdate
+      global fifoPath
+      if bpy.types.Scene.Nethck:
+         try:
+            with open('fifoPath') as f: pass
+         except IOError as e:
+            self.report({'ERROR'}, "Blender nethck client is not running!")
+            return {'FINISHED'}
+
+         # Activated
+         geometryUpdate={}
+         sceneUpdateFull()
+         registerUpdateCallback()
+      else:
+         # Disabled
+         geometryUpdate={}
+         removeUpdateCallback()
+
+      return {'FINISHED'}
+
+# Draw nethck settings
+def nethckDraw(self, context):
+   nethckOk = not bpy.types.Scene.Nethck
+   rnl = context.scene.render.layers.active
+   split = self.layout.split()
+   col = split.column()
+   col.operator(nethckCheck.bl_idname, emboss=False, icon='CHECKBOX_HLT' if nethckOk else 'CHECKBOX_DEHLT')
+   self.layout.separator()
+
+# Plugin's register method
+def register():
+   global geometryUpdate
+   geometryUpdate={}
+   removeUpdateCallback()
+   bpy.types.Scene.Nethck = BoolProperty(
+         name=nethckCheck.bl_label,
+         description=nethckCheck.bl_description,
+         default=False)
+   bpy.utils.register_class(nethckCheck)
+   bpy.types.RENDER_PT_render.prepend(nethckDraw)
+
+# Plugin's unregister method
+def unregister():
+   global geometryUpdate
+   geometryUpdate={}
+   removeUpdateCallback()
+   del bpy.types.Scene.Nethck
+   bpy.utils.unregister_class(nethckCheck)
+   bpy.types.RENDER_PT_render.remove(nethckDraw)
+
+if __name__ == "__main__":
+   register()
