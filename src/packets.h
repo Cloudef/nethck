@@ -29,10 +29,11 @@ typedef struct nethckGeometry {
 
 /* \brief object packet */
 typedef struct nethckObjectPacket {
+   unsigned char type;
    struct nethckGeometry geometry;
    struct nethckView view;
    struct nethckMaterial material;
-   unsigned char type;
+   unsigned int id;
 } nethckObjectPacket;
 
 /* \brief generic packet */

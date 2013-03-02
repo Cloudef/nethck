@@ -7,7 +7,7 @@ def r3d(v):
 def r2d(v):
    return round(v[0],6), round(v[1],6)
 
-vertexnum={}
+geometryUpdate={}
 lvl=[]
 lnl=[]
 luvl=[]
@@ -82,43 +82,47 @@ def obRotation(ob):
    return ob.matrix_local.to_euler();
 
 def sendObject(ob, edited):
-   global vertexnum
+   global geometryUpdate
 
    f = open('/tmp/blender.fifo', 'w')
    if f:
       obid = hash(ob.name)
-      oldvnum = vertexnum.get(obid, 0)
+      shouldUpdateGeometry = geometryUpdate.get(obid, True)
       position = obPosition(ob)
       rotation = obRotation(ob)
-      f.write(str(obid)+"\n")
-      f.write(str(position[0])+","+
-              str(position[1])+","+
-              str(position[2])+"\n")
-      f.write(str(rotation[0])+","+
-              str(rotation[1])+","+
-              str(rotation[2])+"\n")
-      f.write(str(ob.scale[0])+","+
-              str(ob.scale[1])+","+
-              str(ob.scale[2])+"\n")
-      f.write("%f,%f,%f,%f\n"%tuple(ob.color))
 
-      msh = ob.to_mesh(bpy.context.scene,True,"PREVIEW")
-      newvnum = len(msh.vertices)
-      if newvnum != oldvnum or edited:
-         buildData(msh)
-         f.write(str(len(lvl))+","+
-                 str(len(lfl)*3)+"\n")
-         for i in range(0,len(lvl)):
-            f.write("%f,%f,%f\n"%tuple(lvl[i]))
-            f.write("%f,%f,%f\n"%tuple(lnl[i]))
-            f.write("%f,%f\n"%tuple(luvl[i]))
+      if ob.mode == 'OBJECT':
+         f.write(str(obid)+"\n")
+         f.write(str(position[0])+","+
+                 str(position[1])+","+
+                 str(position[2])+"\n")
+         f.write(str(rotation[0])+","+
+                 str(rotation[1])+","+
+                 str(rotation[2])+"\n")
+         f.write(str(ob.scale[0])+","+
+                 str(ob.scale[1])+","+
+                 str(ob.scale[2])+"\n")
+         f.write("%f,%f,%f,%f\n"%tuple(ob.color))
 
-         for i in lfl:
-            f.write("%d,%d,%d\n"%tuple(i))
+         msh = ob.to_mesh(bpy.context.scene, True, "PREVIEW")
+         if shouldUpdateGeometry:
+            buildData(msh)
+            f.write(str(len(lvl))+","+
+                    str(len(lfl)*3)+"\n")
+            for i in range(0,len(lvl)):
+               f.write("%f,%f,%f\n"%tuple(lvl[i]))
+               f.write("%f,%f,%f\n"%tuple(lnl[i]))
+               f.write("%f,%f\n"%tuple(luvl[i]))
 
-      vertexnum[obid] = newvnum
-      f.flush()
-      f.close()
+            for i in lfl:
+               f.write("%d,%d,%d\n"%tuple(i))
+         else:
+            f.write("0,0\n")
+
+         f.flush()
+         f.close()
+
+      geometryUpdate[obid] = edited
 
 def scene_update(context):
    if bpy.data.objects.is_updated:

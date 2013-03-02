@@ -24,6 +24,8 @@ int main(int argc, char **argv)
 {
    GLFWwindow *window;
    glhckCamera *camera;
+   glhckObject **objects;
+   unsigned int objectCount, i;
    float          now          = 0;
    float          last         = 0;
    unsigned int   frameCounter = 0;
@@ -73,7 +75,9 @@ int main(int argc, char **argv)
 
       glhckCameraUpdate(camera);
       if (nethckClientUpdate()) {
+         objects = nethckClientObjects(&objectCount);
          glhckRenderClear(GLHCK_COLOR_BUFFER | GLHCK_DEPTH_BUFFER);
+         for (i = 0; i != objectCount; ++i) glhckObjectDraw(objects[i]);
          glhckRender();
          glfwSwapBuffers(window);
       }

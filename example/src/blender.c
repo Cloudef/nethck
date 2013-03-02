@@ -9,6 +9,7 @@
 #include <fcntl.h>
 
 enum {
+   ID,
    TRANSLATION,
    ROTATION,
    SCALING,
@@ -111,8 +112,8 @@ static unsigned int handleFifo(FILE *f)
 {
    glhckObject *object = NULL;
    char buffer[1024];
-   unsigned int index;
-   size_t vertexCount, indexCount;
+   unsigned int index, id;
+   int vertexCount, indexCount;
    kmVec3 translation, rotation, scaling;
    kmVec4 colorf;
 
@@ -121,8 +122,13 @@ static unsigned int handleFifo(FILE *f)
    while (fgets(buffer, sizeof(buffer), f)) {
       printf("%s", buffer);
       switch (index) {
+         case ID:
+            sscanf(buffer, "%u", &id);
+            object = nethckClientObjectForId(id);
+            if (object) glhckObjectRef(object);
+            break;
          case TRANSLATION:
-            if (!(object = glhckObjectNew())) goto fail;
+            if (!object && !(object = glhckObjectNew())) goto fail;
             sscanf(buffer, "%f,%f,%f", &translation.x, &translation.y, &translation.z);
             glhckObjectPosition(object, &translation);
             break;
@@ -143,7 +149,7 @@ static unsigned int handleFifo(FILE *f)
             glhckObjectColorb(object, colorf.x*255.0f, colorf.y*255.0f, colorf.z*255.0f, colorf.w*255.0f);
             break;
          case GEOMETRY:
-            sscanf(buffer, "%zu,%zu", &vertexCount, &indexCount);
+            sscanf(buffer, "%d,%d", &vertexCount, &indexCount);
             handleGeometry(f, object, vertexCount, indexCount);
             break;
          default:
@@ -153,7 +159,7 @@ static unsigned int handleFifo(FILE *f)
    }
 
    if (object) {
-      nethckClientObjectRender(object);
+      nethckClientObjectRender(id, object);
       glhckObjectFree(object);
    }
    return index;

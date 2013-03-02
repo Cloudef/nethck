@@ -5,6 +5,7 @@
 #include <enet/enet.h> /* for enet   */
 #include <string.h>
 
+/* \brief single client representation */
 typedef struct __NETHCKclient {
    char host[46];
    struct __NETHCKclient *next;
@@ -32,7 +33,6 @@ static __NETHCKclient* _nethckServerNewClient(__NETHCKclient *params)
    for (c = _NETHCKserver.clients; c && c->next; c = c->next);
    if (c) c = c->next = malloc(sizeof(__NETHCKclient));
    else c = _NETHCKserver.clients = malloc(sizeof(__NETHCKclient));
-
    memcpy(c, params, sizeof(__NETHCKclient));
    return c;
 }
@@ -46,7 +46,6 @@ static void _nethckServerFreeClient(__NETHCKclient *client)
    for (c = _NETHCKserver.clients; c != client && c->next != client; c = c->next);
    if (c == client) _NETHCKserver.clients = client->next;
    else if (c) c->next = client->next;
-
    free(client);
 }
 
@@ -108,6 +107,7 @@ static void _nethckServerManagePacketObject(unsigned char *data)
    nethckObjectPacket *packet = (nethckObjectPacket*)data;
 
    printf("-- Echo %p from Client -->\n", packet);
+   printf("[] ID: %u\n", packet->id);
    printf("[] Geometry type: %u\n", packet->geometry.type);
    printf("[] Vertex type: %d\n", packet->geometry.vertexType);
    printf("[] Index type: %d\n", packet->geometry.indexType);

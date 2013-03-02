@@ -5,10 +5,19 @@
 #include <enet/enet.h> /* for enet   */
 #include <string.h>
 
+/* \brief object wrapper struct */
+typedef struct nethckObject {
+   unsigned int id;
+   glhckObject *object;
+   struct nethckObject *next;
+} nethckObject;
+
 /* \brief local client struct */
 typedef struct __NETHCKclient {
    ENetHost *enet;
    ENetPeer *peer;
+   nethckObject *objects;
+   glhckObject **objectList;
 } __NETHCKclient;
 static __NETHCKclient _NETHCKclient;
 static char _nethckClientInitialized = 0;
@@ -17,6 +26,35 @@ static char _nethckClientInitialized = 0;
 #define CALL(x, y, ...) ;
 #define RET(x, y, ...) ;
 #define TRACE(x) ;
+
+/* \brief get object with id from tracking list */
+static nethckObject* _nethckTrackObjectForId(unsigned int id)
+{
+   nethckObject *o;
+   for (o = _NETHCKclient.objects; o; o = o->next)
+      if (o->id == id) return o;
+   return NULL;
+}
+
+/* \brief add object with id to tracking list */
+static int _nethckTrackObject(unsigned int id, glhckObject *object)
+{
+   nethckObject *o;
+
+   /* don't add duplicates */
+   if (_nethckTrackObjectForId(id))
+      return RETURN_OK;
+
+   /* add to tracking list */
+   for (o = _NETHCKclient.objects; o && o->next; o = o->next);
+   if (!o) o = _NETHCKclient.objects = calloc(1, sizeof(nethckObject));
+   else o = o->next = calloc(1, sizeof(nethckObject));
+   if (!o) return RETURN_FAIL;
+
+   o->id = id;
+   o->object = glhckObjectRef(object);
+   return RETURN_OK;
+}
 
 /* \brief manage incoming object packet */
 static void _nethckClientManagePacketObject(unsigned char *data)
@@ -28,15 +66,21 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    glhckObject *object = NULL;
    glhckGeometry *geometry = NULL;
 
-   if (!(object = glhckObjectNew()))
-      goto fail;
-
-   if (!(geometry = glhckObjectNewGeometry(object)))
-      goto fail;
-
    offset  = data;
    packet  = (nethckObjectPacket*)data;
    offset += sizeof(nethckObjectPacket);
+
+   if ((object = nethckClientObjectForId(packet->id)))
+      glhckObjectRef(object);
+
+   if (!object && !(object = glhckObjectNew()))
+      goto fail;
+
+   if (!(geometry = glhckObjectGetGeometry(object)) && !(geometry = glhckObjectNewGeometry(object)))
+      goto fail;
+
+   if (_nethckTrackObject(packet->id, object) != RETURN_OK)
+      goto fail;
 
    geometry->type        = packet->geometry.type;
    geometry->vertexType  = packet->geometry.vertexType;
@@ -69,12 +113,12 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    glhckObjectPosition(object, (kmVec3*)&packet->view.translation);
    glhckObjectRotation(object, (kmVec3*)&packet->view.rotation);
    glhckObjectColor(object, &packet->material.color);
-
    glhckObjectUpdate(object);
-   glhckObjectDraw(object);
+   glhckObjectFree(object);
 
 #if 1
    printf("-- Echo %p from Server -->\n", packet);
+   printf("[] ID: %u\n", packet->id);
    printf("[] Geometry type: %u\n", geometry->type);
    printf("[] Vertex type: %d\n", geometry->vertexType);
    printf("[] Index type: %d\n", geometry->indexType);
@@ -89,8 +133,6 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    printf("[] Color: "COLBS"\n", COLB(glhckObjectGetColor(object)));
    printf("<---\n");
 #endif
-
-   glhckObjectFree(object);
    return;
 
 fail:
@@ -329,11 +371,20 @@ fail:
 /* \brief kill nethck server */
 NETHCKAPI void nethckClientTerminate(void)
 {
+   nethckObject *o, *on;
    TRACE(0);
 
    /* is initialized? */
    if (!_nethckClientInitialized)
       return;
+
+   /* free objects */
+   for (o = _NETHCKclient.objects; o; o = on) {
+      on = o->next;
+      glhckObjectFree(o->object);
+      free(o);
+   }
+   IFDO(free, _NETHCKclient.objectList);
 
    /* kill enet */
    _nethckEnetDestroy();
@@ -380,13 +431,46 @@ NETHCKAPI void nethckClientImportObject(nethckImportObject *import)
          import->geometry.indexData, isize);
 }
 
+/* \brief return objects in network */
+NETHCKAPI glhckObject** nethckClientObjects(unsigned int *objectCount)
+{
+   nethckObject *o;
+   glhckObject **objects;
+   unsigned int count = 0, index = 0;
+
+   IFDO(free, _NETHCKclient.objectList);
+   for (o = _NETHCKclient.objects; o; o = o->next)
+      ++count;
+
+   if (count) objects = calloc(count, sizeof(glhckObject*));
+   for (o = _NETHCKclient.objects; o; o = o->next,++index)
+      objects[index] = o->object;
+
+   if (objectCount) *objectCount = count;
+   _NETHCKclient.objectList = objects;
+   return objects;
+}
+
+/* \brief return 'rendered' object for id */
+NETHCKAPI glhckObject* nethckClientObjectForId(unsigned int id)
+{
+   nethckObject *o;
+   o = _nethckTrackObjectForId(id);
+   if (o) return o->object;
+   return NULL;
+}
+
 /* \brief 'render' object to network */
-NETHCKAPI void nethckClientObjectRender(const glhckObject *object)
+NETHCKAPI void nethckClientObjectRender(unsigned int id, glhckObject *object)
 {
    glhckGeometry *geometry;
    nethckObjectPacket packet;
    void *vdata = NULL, *idata = NULL;
    size_t vsize = 0, isize = 0;
+   assert(object);
+
+   if (_nethckTrackObject(id, object) != RETURN_OK)
+      return;
 
    if (!(geometry = glhckObjectGetGeometry(object)))
       return;
@@ -394,6 +478,7 @@ NETHCKAPI void nethckClientObjectRender(const glhckObject *object)
    _nethckGeometryVertexDataAndSize(geometry, &vdata, &vsize);
    _nethckGeometryIndexDataAndSize(geometry, &idata, &isize);
 
+   packet.id = id;
    packet.geometry.type        = geometry->type;
    packet.geometry.vertexType  = geometry->vertexType;
    packet.geometry.indexType   = geometry->indexType;
@@ -410,6 +495,7 @@ NETHCKAPI void nethckClientObjectRender(const glhckObject *object)
 
 #if 0
    printf("-- Echo %p to Server -->\n", object);
+   printf("[] ID: %u\n", id);
    printf("[] Geometry type: %u\n", geometry->type);
    printf("[] Vertex type: %d\n", geometry->vertexType);
    printf("[] Index type: %d\n", geometry->indexType);

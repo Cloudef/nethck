@@ -63,7 +63,9 @@ typedef struct nethckImportObject {
 NETHCKAPI int nethckClientCreate(const char *host, int port);
 NETHCKAPI void nethckClientTerminate(void);
 NETHCKAPI int nethckClientUpdate(void);
-NETHCKAPI void nethckClientObjectRender(const glhckObject *object);
+NETHCKAPI glhckObject** nethckClientObjects(unsigned int *objectCount);
+NETHCKAPI glhckObject* nethckClientObjectForId(unsigned int id);
+NETHCKAPI void nethckClientObjectRender(unsigned int id, glhckObject *object);
 NETHCKAPI void nethckClientImportObject(nethckImportObject *import);
 
 /* server */
