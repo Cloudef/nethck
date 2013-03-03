@@ -24,6 +24,7 @@ int main(int argc, char **argv)
 {
    GLFWwindow *window;
    glhckCamera *camera;
+   glhckLight *light;
    glhckObject **objects;
    unsigned int objectCount, i;
    float          now          = 0;
@@ -61,11 +62,20 @@ int main(int argc, char **argv)
       return EXIT_FAILURE;
 
    glhckCameraRange(camera, 1.0f, 1000.0f);
-   glhckObjectPositionf(glhckCameraGetObject(camera), 0.0f, 0.0f, -5.0f);
+   glhckObjectPositionf(glhckCameraGetObject(camera), 15.0f, 8.0f, -15.0f);
 
    glfwSetWindowCloseCallback(window, close_callback);
    glfwSetWindowSizeCallback(window, resize_callback);
 
+   if (!(light = glhckLightNew()))
+      return EXIT_FAILURE;
+   glhckLightAttenf(light, 0.0f, 0.0f, 1.5f);
+   glhckLightPointLightFactor(light, 1.0f);
+   glhckLightColorb(light, 255, 255, 255, 255);
+   glhckObjectPositionf(glhckLightGetObject(light), 16.0f, 8.0f, -15.0f);
+   glhckObjectTargetf(glhckLightGetObject(light), 0.0f, 0.0f, 0.0f);
+
+   glhckRenderCullFace(GLHCK_CULL_BACK);
    RUNNING = 1;
    while (RUNNING && glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS) {
       last  =  now;
@@ -78,6 +88,9 @@ int main(int argc, char **argv)
          objects = nethckClientObjects(&objectCount);
          glhckRenderClear(GLHCK_COLOR_BUFFER | GLHCK_DEPTH_BUFFER);
          for (i = 0; i != objectCount; ++i) glhckObjectDraw(objects[i]);
+         glhckLightBeginProjectionWithCamera(light, camera);
+         glhckLightBind(light);
+         glhckLightEndProjectionWithCamera(light, camera);
          glhckRender();
          glfwSwapBuffers(window);
       }
