@@ -66,11 +66,11 @@ static void handleGeometry(FILE *f, glhckObject *object, size_t vertexCount, siz
       switch (index) {
          case VERTEX:
             sscanf(buffer, "%f,%f,%f",
-                  &vdata[v].vertex.x, &vdata[v].vertex.y, &vdata[v].vertex.z);
+                  &vdata[v].vertex.x, &vdata[v].vertex.z, &vdata[v].vertex.y);
             break;
          case NORMAL:
             sscanf(buffer, "%f,%f,%f",
-                  &vdata[v].normal.x, &vdata[v].normal.y, &vdata[v].normal.z);
+                  &vdata[v].normal.x, &vdata[v].normal.z, &vdata[v].normal.y);
             break;
          case COORD:
             sscanf(buffer, "%f,%f",
@@ -124,6 +124,12 @@ static unsigned int handleFifo(FILE *f)
    kmVec3 translation, rotation, scaling;
    kmVec4 colorf;
 
+   /* TODO:
+    * we should compose xzy matrix out of the translation, rotation, scaling here and
+    * then convert it to xyz matrix for decomposition.
+    *
+    * This is because blender uses xzy coordinates. */
+
    index = vertexCount = indexCount = 0;
    memset(buffer, 0, sizeof(buffer));
    while (fgets(buffer, sizeof(buffer), f)) {
@@ -136,11 +142,13 @@ static unsigned int handleFifo(FILE *f)
             if (!object && !(object = glhckObjectNew())) goto fail;
             break;
          case TRANSLATION:
-            sscanf(buffer, "%f,%f,%f", &translation.x, &translation.y, &translation.z);
+            sscanf(buffer, "%f,%f,%f", &translation.x, &translation.z, &translation.y);
+            translation.x *= -1;
             glhckObjectPosition(object, &translation);
             break;
          case ROTATION:
             sscanf(buffer, "%f,%f,%f", &rotation.x, &rotation.y, &rotation.z);
+            rotation.x *= -1;
             rotation.x *= kmPIUnder180;
             rotation.y *= kmPIUnder180;
             rotation.z *= kmPIUnder180;
@@ -148,7 +156,8 @@ static unsigned int handleFifo(FILE *f)
             glhckObjectRotation(object, &rotation);
             break;
          case SCALING:
-            sscanf(buffer, "%f,%f,%f", &scaling.x, &scaling.y, &scaling.z);
+            sscanf(buffer, "%f,%f,%f", &scaling.x, &scaling.z, &scaling.y);
+            scaling.x *= -1;
             glhckObjectScale(object, &scaling);
             break;
          case COLOR:
@@ -161,6 +170,7 @@ static unsigned int handleFifo(FILE *f)
 
             if (object) {
                nethckClientObjectRender(id, object);
+               nethckClientUpdate();
                glhckObjectFree(object);
                object = NULL;
                index = vertexCount = indexCount = 0;
