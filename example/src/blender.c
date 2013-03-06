@@ -62,6 +62,9 @@ static void handleGeometry(FILE *f, glhckObject *object, size_t vertexCount, siz
       if (!fgets(buffer, sizeof(buffer), f))
          goto fail;
 
+      /* xzy -> xyz here
+       * could be also done in nethck.py, I guess.. */
+
       printf("%s", buffer);
       switch (index) {
          case VERTEX:
@@ -124,12 +127,6 @@ static unsigned int handleFifo(FILE *f)
    kmVec3 translation, rotation, scaling;
    kmVec4 colorf;
 
-   /* TODO:
-    * we should compose xzy matrix out of the translation, rotation, scaling here and
-    * then convert it to xyz matrix for decomposition.
-    *
-    * This is because blender uses xzy coordinates. */
-
    index = vertexCount = indexCount = 0;
    memset(buffer, 0, sizeof(buffer));
    while (fgets(buffer, sizeof(buffer), f)) {
@@ -142,13 +139,11 @@ static unsigned int handleFifo(FILE *f)
             if (!object && !(object = glhckObjectNew())) goto fail;
             break;
          case TRANSLATION:
-            sscanf(buffer, "%f,%f,%f", &translation.x, &translation.z, &translation.y);
-            translation.x *= -1;
+            sscanf(buffer, "%f,%f,%f", &translation.x, &translation.y, &translation.z);
             glhckObjectPosition(object, &translation);
             break;
          case ROTATION:
             sscanf(buffer, "%f,%f,%f", &rotation.x, &rotation.y, &rotation.z);
-            rotation.x *= -1;
             rotation.x *= kmPIUnder180;
             rotation.y *= kmPIUnder180;
             rotation.z *= kmPIUnder180;
@@ -156,8 +151,7 @@ static unsigned int handleFifo(FILE *f)
             glhckObjectRotation(object, &rotation);
             break;
          case SCALING:
-            sscanf(buffer, "%f,%f,%f", &scaling.x, &scaling.z, &scaling.y);
-            scaling.x *= -1;
+            sscanf(buffer, "%f,%f,%f", &scaling.x, &scaling.y, &scaling.z);
             glhckObjectScale(object, &scaling);
             break;
          case COLOR:

@@ -104,11 +104,25 @@ fifoPath='/tmp/blender.fifo'
 
 # Return object's position
 def obPosition(ob):
-   return ob.matrix_local.to_translation()
+   position = ob.matrix_local.to_translation()
+   return [-position[0],position[2],position[1]]
 
 # Return object's rotation
 def obRotation(ob):
-   return ob.matrix_local.to_euler();
+   x = 'X'
+   y = 'Z'
+   z = 'Y'
+   euler = ob.matrix_local.to_euler()
+   crot = mathutils.Matrix().to_3x3()
+   xrot = mathutils.Matrix.Rotation(-euler.x, 3, x)
+   yrot = mathutils.Matrix.Rotation(euler.y, 3, y)
+   zrot = mathutils.Matrix.Rotation(euler.z, 3, z)
+   rot = crot * zrot * yrot * xrot
+   return rot.to_euler()
+
+# Return object's scaling
+def obScaling(ob):
+   return [-ob.scale[0],ob.scale[2],ob.scale[1]]
 
 # Dump object to FIFO
 def sendObject(ob, edited):
@@ -128,6 +142,7 @@ def sendObject(ob, edited):
       shouldUpdateGeometry = geometryUpdate.get(obId, True)
       position = obPosition(ob)
       rotation = obRotation(ob)
+      scaling  = obScaling(ob)
 
       if ob.mode == 'OBJECT':
          f.write(str(obId)+"\n")
@@ -137,9 +152,9 @@ def sendObject(ob, edited):
          f.write(str(rotation[0])+","+
                  str(rotation[1])+","+
                  str(rotation[2])+"\n")
-         f.write(str(ob.scale[0])+","+
-                 str(ob.scale[1])+","+
-                 str(ob.scale[2])+"\n")
+         f.write(str(scaling[0])+","+
+                 str(scaling[1])+","+
+                 str(scaling[2])+"\n")
          f.write("%f,%f,%f,%f\n"%tuple(ob.color))
 
          # Convert the object to mesh and write it's vertexData if needed
