@@ -156,6 +156,8 @@ static int _nethckEnetUpdate(void)
                case NETHCK_PACKET_OBJECT:
                   _nethckServerManagePacketObject(event.packet->data);
                   break;
+               case NETHCK_PACKET_OBJECT_TRANSLATION:
+                  break;
 
                default:
                   printf("A packet of length %zu containing %s was received from %s on channel %u.\n",

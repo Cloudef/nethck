@@ -16,5 +16,6 @@ typedef enum _nethckReturnValue {
 /* geometry helpers */
 void _nethckGeometryVertexDataAndSize(glhckGeometry *geometry, void **data, size_t *size);
 void _nethckGeometryIndexDataAndSize(glhckGeometry *geometry, void **data, size_t *size);
+unsigned int _nethckGeometryVertexDataHash(glhckGeometry *geometry);
 
 #endif /* __nethck_internal_h__ */

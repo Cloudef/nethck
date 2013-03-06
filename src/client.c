@@ -7,7 +7,7 @@
 
 /* \brief object wrapper struct */
 typedef struct nethckObject {
-   unsigned int id;
+   unsigned int id, vertexDataHash;
    glhckObject *object;
    struct nethckObject *next;
 } nethckObject;
@@ -37,23 +37,38 @@ static nethckObject* _nethckTrackObjectForId(unsigned int id)
 }
 
 /* \brief add object with id to tracking list */
-static int _nethckTrackObject(unsigned int id, glhckObject *object)
+static nethckObject* _nethckTrackObject(unsigned int id, glhckObject *object)
 {
    nethckObject *o;
 
    /* don't add duplicates */
-   if (_nethckTrackObjectForId(id))
-      return RETURN_OK;
+   if ((o = _nethckTrackObjectForId(id)))
+      return o;
 
    /* add to tracking list */
    for (o = _NETHCKclient.objects; o && o->next; o = o->next);
    if (!o) o = _NETHCKclient.objects = calloc(1, sizeof(nethckObject));
    else o = o->next = calloc(1, sizeof(nethckObject));
-   if (!o) return RETURN_FAIL;
+   if (!o) return NULL;
 
    o->id = id;
    o->object = glhckObjectRef(object);
-   return RETURN_OK;
+   return o;
+}
+
+/* \brief manage incoming object translation packet */
+static void _nethckClientManagePacketObjectTranslation(unsigned char *data)
+{
+   glhckObject *object;
+   nethckObjectTranslationPacket *packet;
+   packet = (nethckObjectTranslationPacket*)data;
+
+   if (!(object = nethckClientObjectForId(packet->id)))
+      return;
+
+   glhckObjectScale(object, (kmVec3*)&packet->view.scaling);
+   glhckObjectPosition(object, (kmVec3*)&packet->view.translation);
+   glhckObjectRotation(object, (kmVec3*)&packet->view.rotation);
 }
 
 /* \brief manage incoming object packet */
@@ -79,27 +94,32 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    if (!(geometry = glhckObjectGetGeometry(object)) && !(geometry = glhckObjectNewGeometry(object)))
       goto fail;
 
-   if (_nethckTrackObject(packet->id, object) != RETURN_OK)
+   if (!_nethckTrackObject(packet->id, object))
       goto fail;
 
    geometry->type        = packet->geometry.type;
    geometry->vertexType  = packet->geometry.vertexType;
    geometry->indexType   = packet->geometry.indexType;
-   geometry->vertexCount = packet->geometry.vertexCount;
-   geometry->indexCount  = packet->geometry.indexCount;
+
+   if (packet->geometry.vertexCount)
+      geometry->vertexCount = packet->geometry.vertexCount;
+   if (packet->geometry.indexCount)
+      geometry->indexCount  = packet->geometry.indexCount;
    memcpy(&geometry->bias, &packet->geometry.bias, sizeof(glhckVector3f));
    memcpy(&geometry->scale, &packet->geometry.scale, sizeof(glhckVector3f));
    geometry->textureRange = packet->geometry.textureRange;
 
-   vsize = geometry->vertexCount * glhckVertexTypeElementSize(geometry->vertexType);
-   if (!(vdata = malloc(vsize)))
-      goto fail;
+   if (packet->geometry.vertexCount) {
+      vsize = geometry->vertexCount * glhckVertexTypeElementSize(geometry->vertexType);
+      if (!(vdata = malloc(vsize)))
+         goto fail;
 
-   memcpy(vdata, offset, vsize); offset += vsize;
-   glhckGeometrySetVertices(geometry, geometry->vertexType, vdata, geometry->vertexCount);
-   NULLDO(free, vdata);
+      memcpy(vdata, offset, vsize); offset += vsize;
+      glhckGeometrySetVertices(geometry, geometry->vertexType, vdata, geometry->vertexCount);
+      NULLDO(free, vdata);
+   }
 
-   if (geometry->indexCount) {
+   if (packet->geometry.indexCount) {
       isize = geometry->indexCount * glhckIndexTypeElementSize(geometry->indexType);
       if (!(idata = malloc(isize)))
          goto fail;
@@ -116,7 +136,7 @@ static void _nethckClientManagePacketObject(unsigned char *data)
    glhckObjectUpdate(object);
    glhckObjectFree(object);
 
-#if 1
+#if 0
    printf("-- Echo %p from Server -->\n", packet);
    printf("[] ID: %u\n", packet->id);
    printf("[] Geometry type: %u\n", geometry->type);
@@ -271,6 +291,9 @@ static int _nethckEnetUpdate(void)
                case NETHCK_PACKET_OBJECT:
                   _nethckClientManagePacketObject(event.packet->data);
                   break;
+               case NETHCK_PACKET_OBJECT_TRANSLATION:
+                  _nethckClientManagePacketObjectTranslation(event.packet->data);
+                  break;
 
                default:
                   printf("A packet of length %zu containing %s was received from server on channel %u.\n",
@@ -310,13 +333,28 @@ static void _nethckEnetSend(unsigned char *data, size_t size)
    enet_host_flush(_NETHCKclient.enet);
 }
 
+/* \brief prepare translation packet */
+static void nethckClientPrepareObjectTranslationPacket(unsigned int id, glhckObject *object)
+{
+   nethckObjectTranslationPacket tpacket;
+   memset(&tpacket, 0, sizeof(nethckObjectTranslationPacket));
+   tpacket.type = NETHCK_PACKET_OBJECT_TRANSLATION;
+   tpacket.id = id;
+   memcpy(&tpacket.view.translation, (glhckVector3f*)glhckObjectGetPosition(object), sizeof(glhckVector3f));
+   memcpy(&tpacket.view.rotation, (glhckVector3f*)glhckObjectGetRotation(object), sizeof(glhckVector3f));
+   memcpy(&tpacket.view.scaling, (glhckVector3f*)glhckObjectGetScale(object), sizeof(glhckVector3f));
+   _nethckEnetSend((unsigned char*)&tpacket, sizeof(nethckObjectTranslationPacket));
+}
+
 /* \brief send object packet */
-static void nethckClientSendObjectPacket(nethckObjectPacket *packet,
-      void *vdata, size_t vsize, void *idata, size_t isize)
+static void nethckClientSendObjectPacket(nethckObjectPacket *packet, void *vdata, size_t vsize, void *idata, size_t isize)
 {
    size_t size;
    unsigned char *data = NULL, *offset;
    assert(packet);
+
+   if (!vdata) packet->geometry.vertexCount = 0;
+   if (!idata) packet->geometry.indexCount = 0;
 
    size = sizeof(nethckObjectPacket) + vsize + isize;
    if (!(offset = data = malloc(size)))
@@ -333,6 +371,54 @@ static void nethckClientSendObjectPacket(nethckObjectPacket *packet,
 
 fail:
    IFDO(free, data);
+}
+
+/* \brief prepare for a full object packet */
+static void nethckClientPrepareObjectPacket(unsigned int id, glhckObject *object, glhckGeometry *geometry)
+{
+   nethckObjectPacket packet;
+   void *vdata = NULL, *idata = NULL;
+   size_t vsize = 0, isize = 0;
+
+   _nethckGeometryVertexDataAndSize(geometry, &vdata, &vsize);
+   _nethckGeometryIndexDataAndSize(geometry, &idata, &isize);
+
+   memset(&packet, 0, sizeof(nethckObjectPacket));
+   packet.id = id;
+   packet.geometry.type        = geometry->type;
+   packet.geometry.vertexType  = geometry->vertexType;
+   packet.geometry.indexType   = geometry->indexType;
+   packet.geometry.vertexCount = geometry->vertexCount;
+   packet.geometry.indexCount  = geometry->indexCount;
+   memcpy(&packet.geometry.scale, &geometry->scale, sizeof(glhckVector3f));
+   memcpy(&packet.geometry.bias, &geometry->bias, sizeof(glhckVector3f));
+   packet.geometry.textureRange = geometry->textureRange;
+
+   memcpy(&packet.view.translation, (glhckVector3f*)glhckObjectGetPosition(object), sizeof(glhckVector3f));
+   memcpy(&packet.view.rotation, (glhckVector3f*)glhckObjectGetRotation(object), sizeof(glhckVector3f));
+   memcpy(&packet.view.scaling, (glhckVector3f*)glhckObjectGetScale(object), sizeof(glhckVector3f));
+   memcpy(&packet.material.color, glhckObjectGetColor(object), sizeof(glhckColorb));
+
+#if 0
+   printf("-- Echo %p to Server -->\n", object);
+   printf("[] ID: %u\n", id);
+   printf("[] Geometry type: %u\n", geometry->type);
+   printf("[] Vertex type: %d\n", geometry->vertexType);
+   printf("[] Index type: %d\n", geometry->indexType);
+   printf("[] Vertex count: %zu\n", geometry->vertexCount);
+   printf("[] Index count: %zu\n", geometry->indexCount);
+   printf("[] Bias: "VEC3S"\n", VEC3(&geometry->bias));
+   printf("[] Scale: "VEC3S"\n", VEC3(&geometry->scale));
+   printf("[] Texture range: %u\n", geometry->textureRange);
+   printf("[] Translation: "VEC3S"\n", VEC3(glhckObjectGetPosition(object)));
+   printf("[] Rotation: "VEC3S"\n", VEC3(glhckObjectGetRotation(object)));
+   printf("[] Scaling: "VEC3S"\n", VEC3(glhckObjectGetScale(object)));
+   printf("[] Color: "COLBS"\n", COLB(glhckObjectGetColor(object)));
+   printf("<---\n");
+#endif
+
+   /* send */
+   nethckClientSendObjectPacket(&packet, vdata, vsize, idata, isize);
 }
 
 /* public api */
@@ -426,9 +512,7 @@ NETHCKAPI void nethckClientImportObject(nethckImportObject *import)
 
    vsize = packet.geometry.vertexCount * glhckVertexTypeElementSize(packet.geometry.vertexType);
    isize = packet.geometry.indexCount * glhckIndexTypeElementSize(packet.geometry.indexType);
-   nethckClientSendObjectPacket(&packet,
-         import->geometry.vertexData, vsize,
-         import->geometry.indexData, isize);
+   nethckClientSendObjectPacket(&packet, import->geometry.vertexData, vsize, import->geometry.indexData, isize);
 }
 
 /* \brief return objects in network */
@@ -463,56 +547,27 @@ NETHCKAPI glhckObject* nethckClientObjectForId(unsigned int id)
 /* \brief 'render' object to network */
 NETHCKAPI void nethckClientObjectRender(unsigned int id, glhckObject *object)
 {
-   glhckGeometry *geometry;
-   nethckObjectPacket packet;
-   void *vdata = NULL, *idata = NULL;
-   size_t vsize = 0, isize = 0;
+   nethckObject *o;
+   glhckGeometry *geometry = NULL;
+   unsigned int hash;
    assert(object);
 
-   if (_nethckTrackObject(id, object) != RETURN_OK)
+   if (!(o = _nethckTrackObject(id, object)))
       return;
 
    if (!(geometry = glhckObjectGetGeometry(object)))
       return;
 
-   _nethckGeometryVertexDataAndSize(geometry, &vdata, &vsize);
-   _nethckGeometryIndexDataAndSize(geometry, &idata, &isize);
+   /* vertexdata changes? */
+   hash = _nethckGeometryVertexDataHash(geometry);
+   if (hash == o->vertexDataHash) {
+      nethckClientPrepareObjectTranslationPacket(id, object);
+      return;
+   }
 
-   packet.id = id;
-   packet.geometry.type        = geometry->type;
-   packet.geometry.vertexType  = geometry->vertexType;
-   packet.geometry.indexType   = geometry->indexType;
-   packet.geometry.vertexCount = geometry->vertexCount;
-   packet.geometry.indexCount  = geometry->indexCount;
-   memcpy(&packet.geometry.scale, &geometry->scale, sizeof(glhckVector3f));
-   memcpy(&packet.geometry.bias, &geometry->bias, sizeof(glhckVector3f));
-   packet.geometry.textureRange = geometry->textureRange;
-
-   memcpy(&packet.view.translation, (glhckVector3f*)glhckObjectGetPosition(object), sizeof(glhckVector3f));
-   memcpy(&packet.view.rotation, (glhckVector3f*)glhckObjectGetRotation(object), sizeof(glhckVector3f));
-   memcpy(&packet.view.scaling, (glhckVector3f*)glhckObjectGetScale(object), sizeof(glhckVector3f));
-   memcpy(&packet.material.color, glhckObjectGetColor(object), sizeof(glhckColorb));
-
-#if 0
-   printf("-- Echo %p to Server -->\n", object);
-   printf("[] ID: %u\n", id);
-   printf("[] Geometry type: %u\n", geometry->type);
-   printf("[] Vertex type: %d\n", geometry->vertexType);
-   printf("[] Index type: %d\n", geometry->indexType);
-   printf("[] Vertex count: %zu\n", geometry->vertexCount);
-   printf("[] Index count: %zu\n", geometry->indexCount);
-   printf("[] Bias: "VEC3S"\n", VEC3(&geometry->bias));
-   printf("[] Scale: "VEC3S"\n", VEC3(&geometry->scale));
-   printf("[] Texture range: %u\n", geometry->textureRange);
-   printf("[] Translation: "VEC3S"\n", VEC3(glhckObjectGetPosition(object)));
-   printf("[] Rotation: "VEC3S"\n", VEC3(glhckObjectGetRotation(object)));
-   printf("[] Scaling: "VEC3S"\n", VEC3(glhckObjectGetScale(object)));
-   printf("[] Color: "COLBS"\n", COLB(glhckObjectGetColor(object)));
-   printf("<---\n");
-#endif
-
-   /* send */
-   nethckClientSendObjectPacket(&packet, vdata, vsize, idata, isize);
+   /* prepare full packet */
+   o->vertexDataHash = hash;
+   nethckClientPrepareObjectPacket(id, object, geometry);
 }
 
 /* vim: set ts=8 sw=3 tw=0 :*/

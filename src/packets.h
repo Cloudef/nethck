@@ -4,6 +4,7 @@
 /* \brief packet type enum */
 typedef enum nethckPacketType {
    NETHCK_PACKET_OBJECT,
+   NETHCK_PACKET_OBJECT_TRANSLATION,
 } _nethckPacketType;
 
 /* \brief representation of object's material */
@@ -27,7 +28,7 @@ typedef struct nethckGeometry {
    glhckGeometryIndexType indexType;
 } nethckGeometry;
 
-/* \brief object packet */
+/* \brief full object packet */
 typedef struct nethckObjectPacket {
    unsigned char type;
    struct nethckGeometry geometry;
@@ -35,6 +36,13 @@ typedef struct nethckObjectPacket {
    struct nethckMaterial material;
    unsigned int id;
 } nethckObjectPacket;
+
+/* \brief object translation packet */
+typedef struct nethckObjectTranslationPacket {
+   unsigned char type;
+   struct nethckView view;
+   unsigned int id;
+} nethckObjectTranslationPacket;
 
 /* \brief generic packet */
 typedef struct nethckPacket {
