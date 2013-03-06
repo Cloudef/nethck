@@ -174,8 +174,9 @@ unsigned int _nethckGeometryVertexDataHash(glhckGeometry *geometry)
 
    return hash;
 }
-#undef ADDV2
-#undef ADDV3
-#undef ADDCB
+#undef HASH
+#undef HASHV2
+#undef HASHV3
+#undef HASHCB
 
 /* vim: set ts=8 sw=3 tw=0 :*/
