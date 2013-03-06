@@ -15,6 +15,7 @@ enum {
    ROTATION,
    SCALING,
    COLOR,
+   TEXTURE,
    GEOMETRY,
 };
 
@@ -157,6 +158,8 @@ static unsigned int handleFifo(FILE *f)
          case COLOR:
             sscanf(buffer, "%f,%f,%f,%f", &colorf.x, &colorf.y, &colorf.z, &colorf.w);
             glhckObjectColorb(object, colorf.x*255.0f, colorf.y*255.0f, colorf.z*255.0f, colorf.w*255.0f);
+            break;
+         case TEXTURE:
             break;
          case GEOMETRY:
             sscanf(buffer, "%d,%d", &vertexCount, &indexCount);

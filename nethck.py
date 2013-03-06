@@ -157,6 +157,15 @@ def sendObject(ob, edited):
                  str(scaling[2])+"\n")
          f.write("%f,%f,%f,%f\n"%tuple(ob.color))
 
+         if ob.active_material:
+            texture = ob.active_material.active_texture
+            if "image" in dir(texture) and texture.image is not None:
+               f.write(texture.image.filepath+"\n")
+            else:
+               f.write("NULL\n")
+         else:
+            f.write("NULL\n")
+
          # Convert the object to mesh and write it's vertexData if needed
          if shouldUpdateGeometry:
             mesh = ob.to_mesh(bpy.context.scene, True, "PREVIEW")
@@ -185,12 +194,12 @@ def sendObject(ob, edited):
             # No need to send the geometry data, so inform 0,0 length
             f.write("0,0\n")
 
-         # Flush and close FIFO
-         f.flush()
-         f.close()
+      # Flush and close FIFO
+      f.flush()
+      f.close()
 
-         # Store object edit state
-         geometryUpdate[obId] = edited
+      # Store object edit state
+      geometryUpdate[obId] = edited
 
 # UpdateAPI callback
 def sceneUpdate(context):
