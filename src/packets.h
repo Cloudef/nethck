@@ -5,6 +5,7 @@
 typedef enum nethckPacketType {
    NETHCK_PACKET_OBJECT,
    NETHCK_PACKET_OBJECT_TRANSLATION,
+   NETHCK_PACKET_OBJECT_TEXTURE,
 } _nethckPacketType;
 
 /* \brief representation of object's material */
@@ -43,6 +44,16 @@ typedef struct nethckObjectTranslationPacket {
    struct nethckView view;
    unsigned int id;
 } nethckObjectTranslationPacket;
+
+typedef struct nethckObjectTexturePacket {
+   unsigned char type;
+   glhckTextureTarget target;
+   glhckTextureFormat format;
+   glhckDataType dataType;
+   int width, height, depth;
+   int size;
+   unsigned int id;
+} nethckObjectTexturePacket;
 
 /* \brief generic packet */
 typedef struct nethckPacket {

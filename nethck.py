@@ -157,10 +157,10 @@ def sendObject(ob, edited):
                  str(scaling[2])+"\n")
          f.write("%f,%f,%f,%f\n"%tuple(ob.color))
 
-         if ob.active_material:
+         if shouldUpdateGeometry and ob.active_material:
             texture = ob.active_material.active_texture
             if "image" in dir(texture) and texture.image is not None:
-               f.write(texture.image.filepath+"\n")
+               f.write(bpy.path.abspath(texture.image.filepath)+"\n")
             else:
                f.write("NULL\n")
          else:

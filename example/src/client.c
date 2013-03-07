@@ -49,13 +49,13 @@ int main(int argc, char **argv)
    /* Turn on VSYNC if driver allows */
    glfwSwapInterval(1);
 
+   if (!nethckClientCreate(NULL, 5050))
+      return EXIT_FAILURE;
+
    if (!glhckContextCreate(argc, argv))
       return EXIT_FAILURE;
 
    if (!glhckDisplayCreate(WIDTH, HEIGHT, GLHCK_RENDER_AUTO))
-      return EXIT_FAILURE;
-
-   if (!nethckClientCreate(NULL, 5050))
       return EXIT_FAILURE;
 
    if (!(camera = glhckCameraNew()))
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
    glhckLightAttenf(light, 0.0f, 0.0f, 1.5f);
    glhckLightPointLightFactor(light, 1.0f);
    glhckLightColorb(light, 255, 255, 255, 255);
-   glhckObjectPositionf(glhckLightGetObject(light), 16.0f, 8.0f, -15.0f);
+   glhckObjectPositionf(glhckLightGetObject(light), 15.0f, 8.0f, -15.0f);
    glhckObjectTargetf(glhckLightGetObject(light), 0.0f, 0.0f, 0.0f);
 
    glhckRenderCullFace(GLHCK_CULL_BACK);

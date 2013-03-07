@@ -9,6 +9,9 @@
 #include <fcntl.h>
 #include <signal.h>
 
+/* TODO: implement null renderer in glhck */
+#include <GL/glfw3.h>
+
 enum {
    ID,
    TRANSLATION,
@@ -66,7 +69,7 @@ static void handleGeometry(FILE *f, glhckObject *object, size_t vertexCount, siz
       /* xzy -> xyz here
        * could be also done in nethck.py, I guess.. */
 
-      printf("%s", buffer);
+      // printf("%s", buffer);
       switch (index) {
          case VERTEX:
             sscanf(buffer, "%f,%f,%f",
@@ -98,7 +101,7 @@ static void handleGeometry(FILE *f, glhckObject *object, size_t vertexCount, siz
       if (!fgets(buffer, sizeof(buffer), f))
          goto fail;
 
-      printf("%s", buffer);
+      // printf("%s", buffer);
       sscanf(buffer, "%u,%u,%u", &idata[i+0], &idata[i+1], &idata[i+2]);
       i+=3;
    }
@@ -122,6 +125,7 @@ fail:
 static unsigned int handleFifo(FILE *f)
 {
    glhckObject *object = NULL;
+   glhckTexture *texture = NULL;
    char buffer[1024];
    unsigned int index, id;
    int vertexCount, indexCount;
@@ -131,7 +135,7 @@ static unsigned int handleFifo(FILE *f)
    index = vertexCount = indexCount = 0;
    memset(buffer, 0, sizeof(buffer));
    while (fgets(buffer, sizeof(buffer), f)) {
-      printf("%s", buffer);
+      // printf("%s", buffer);
       switch (index) {
          case ID:
             sscanf(buffer, "%u", &id);
@@ -148,7 +152,6 @@ static unsigned int handleFifo(FILE *f)
             rotation.x *= kmPIUnder180;
             rotation.y *= kmPIUnder180;
             rotation.z *= kmPIUnder180;
-            printf("ROTATION: %f, %f, %f\n", rotation.x, rotation.y, rotation.z);
             glhckObjectRotation(object, &rotation);
             break;
          case SCALING:
@@ -160,6 +163,13 @@ static unsigned int handleFifo(FILE *f)
             glhckObjectColorb(object, colorf.x*255.0f, colorf.y*255.0f, colorf.z*255.0f, colorf.w*255.0f);
             break;
          case TEXTURE:
+            if (strncmp(buffer, "NULL", 4)) {
+               if (buffer[strlen(buffer)-1] == '\n') buffer[strlen(buffer)-1] = 0;
+               if ((texture = glhckTextureNew(buffer, 0, NULL))) {
+                  glhckObjectTexture(object, texture);
+                  glhckTextureFree(texture);
+               }
+            }
             break;
          case GEOMETRY:
             sscanf(buffer, "%d,%d", &vertexCount, &indexCount);
@@ -192,11 +202,25 @@ fail:
 int main(int argc, char **argv)
 {
    FILE *f;
+   GLFWwindow *window;
+
+   if (!nethckClientCreate(NULL, 5050))
+      return EXIT_FAILURE;
+
+   if (!glfwInit())
+      return EXIT_FAILURE;
+
+   glfwWindowHint(GLFW_DEPTH_BITS, 24);
+   if (!(window = glfwCreateWindow(1, 1, "client", NULL, NULL)))
+      return EXIT_FAILURE;
+   glfwMakeContextCurrent(window);
 
    if (!glhckContextCreate(argc, argv))
       return EXIT_FAILURE;
 
-   if (!nethckClientCreate(NULL, 5050))
+   /* TODO: NULL renderer would be nice here
+    * would not need any window then either. */
+   if (!glhckDisplayCreate(1, 1, GLHCK_RENDER_AUTO))
       return EXIT_FAILURE;
 
    signal(SIGQUIT, sigInt);

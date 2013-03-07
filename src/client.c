@@ -71,12 +71,38 @@ static void _nethckClientManagePacketObjectTranslation(unsigned char *data)
    glhckObjectRotation(object, (kmVec3*)&packet->view.rotation);
 }
 
+/* \brief manage incoming object texture packet */
+static void _nethckClientManagePacketObjectTexture(unsigned char *data)
+{
+   glhckObject *object;
+   glhckTexture *texture;
+   unsigned char *offset;
+   nethckObjectTexturePacket *packet;
+
+   offset = data;
+   packet = (nethckObjectTexturePacket*)data;
+   offset += sizeof(nethckObjectTexturePacket);
+
+   if (!(object = nethckClientObjectForId(packet->id)))
+      return;
+
+   if (!(texture = glhckTextureNew(NULL, 0, NULL)))
+      return;
+
+   if (!glhckTextureCreate(texture, packet->target, 0, packet->width, packet->height,
+            packet->depth, 0, packet->format, packet->dataType, packet->size, offset))
+      return;
+
+   printf("-- GOT TEXTURE %dx%d %d\n", packet->width, packet->height, packet->size);
+   glhckTextureParameter(texture, NULL);
+   glhckObjectTexture(object, texture);
+}
+
 /* \brief manage incoming object packet */
 static void _nethckClientManagePacketObject(unsigned char *data)
 {
    nethckObjectPacket *packet;
    unsigned char *offset;
-   void *vdata = NULL, *idata = NULL;
    size_t vsize = 0, isize = 0;
    glhckObject *object = NULL;
    glhckGeometry *geometry = NULL;
@@ -111,22 +137,14 @@ static void _nethckClientManagePacketObject(unsigned char *data)
 
    if (packet->geometry.vertexCount) {
       vsize = geometry->vertexCount * glhckVertexTypeElementSize(geometry->vertexType);
-      if (!(vdata = malloc(vsize)))
-         goto fail;
-
-      memcpy(vdata, offset, vsize); offset += vsize;
-      glhckGeometrySetVertices(geometry, geometry->vertexType, vdata, geometry->vertexCount);
-      NULLDO(free, vdata);
+      glhckGeometrySetVertices(geometry, geometry->vertexType, offset, geometry->vertexCount);
+      offset += vsize;
    }
 
    if (packet->geometry.indexCount) {
       isize = geometry->indexCount * glhckIndexTypeElementSize(geometry->indexType);
-      if (!(idata = malloc(isize)))
-         goto fail;
-
-      memcpy(idata, offset, isize); offset += isize;
-      glhckGeometrySetIndices(geometry, geometry->indexType, idata, geometry->indexCount);
-      NULLDO(free, idata);
+      glhckGeometrySetIndices(geometry, geometry->indexType, offset, geometry->indexCount);
+      offset += isize;
    }
 
    glhckObjectScale(object, (kmVec3*)&packet->view.scaling);
@@ -157,8 +175,6 @@ static void _nethckClientManagePacketObject(unsigned char *data)
 
 fail:
    IFDO(glhckObjectFree, object);
-   IFDO(free, vdata);
-   IFDO(free, idata);
 }
 
 /* \brief initialize enet internally */
@@ -294,6 +310,9 @@ static int _nethckEnetUpdate(void)
                case NETHCK_PACKET_OBJECT_TRANSLATION:
                   _nethckClientManagePacketObjectTranslation(event.packet->data);
                   break;
+               case NETHCK_PACKET_OBJECT_TEXTURE:
+                  _nethckClientManagePacketObjectTexture(event.packet->data);
+                  break;
 
                default:
                   printf("A packet of length %zu containing %s was received from server on channel %u.\n",
@@ -346,8 +365,50 @@ static void nethckClientPrepareObjectTranslationPacket(unsigned int id, glhckObj
    _nethckEnetSend((unsigned char*)&tpacket, sizeof(nethckObjectTranslationPacket));
 }
 
+/* \brief send object texture packet */
+static void nethckClientSendObjectTexturePacket(nethckObjectTexturePacket *packet, const void *tdata)
+{
+   size_t size;
+   unsigned char *data = NULL, *offset;
+   assert(packet);
+
+   size = sizeof(nethckObjectTexturePacket) + packet->size;
+   if (!(offset = data = malloc(size)))
+      goto fail;
+
+   packet->type = NETHCK_PACKET_OBJECT_TEXTURE;
+   memcpy(offset, packet, sizeof(nethckObjectTexturePacket)); offset += sizeof(nethckObjectTexturePacket);
+   memcpy(offset, data, packet->size); offset += packet->size;
+   printf("--- SEND TEXTURE %dx%d %d\n", packet->width, packet->height, packet->size);
+
+   _nethckEnetSend(data, size);
+   NULLDO(free, data);
+   return;
+
+fail:
+   IFDO(free, data);
+}
+
+/* \brief prepare object texture packet */
+static void nethckClientPrepareObjectTexturePacket(unsigned int id, glhckObject *object)
+{
+   nethckObjectTexturePacket packet;
+   glhckTexture *texture;
+   const void *data;
+
+   if (!(texture = glhckObjectGetTexture(object)))
+      return;
+
+   memset(&packet, 0, sizeof(nethckObjectTexturePacket));
+   packet.id = id;
+   glhckTextureGetInformation(texture, &packet.target, &packet.width, &packet.height,
+         &packet.depth, NULL, &packet.format, &packet.dataType);
+   data = glhckTextureGetData(texture, &packet.size);
+   nethckClientSendObjectTexturePacket(&packet, data);
+}
+
 /* \brief send object packet */
-static void nethckClientSendObjectPacket(nethckObjectPacket *packet, void *vdata, size_t vsize, void *idata, size_t isize)
+static void nethckClientSendObjectPacket(nethckObjectPacket *packet, const void *vdata, size_t vsize, const void *idata, size_t isize)
 {
    size_t size;
    unsigned char *data = NULL, *offset;
@@ -519,8 +580,11 @@ NETHCKAPI void nethckClientImportObject(nethckImportObject *import)
 NETHCKAPI glhckObject** nethckClientObjects(unsigned int *objectCount)
 {
    nethckObject *o;
-   glhckObject **objects;
+   glhckObject **objects = NULL;
    unsigned int count = 0, index = 0;
+
+   if (!_nethckClientInitialized)
+      return NULL;
 
    IFDO(free, _NETHCKclient.objectList);
    for (o = _NETHCKclient.objects; o; o = o->next)
@@ -565,9 +629,11 @@ NETHCKAPI void nethckClientObjectRender(unsigned int id, glhckObject *object)
       return;
    }
 
+   printf("%u\n", hash);
    /* prepare full packet */
    o->vertexDataHash = hash;
    nethckClientPrepareObjectPacket(id, object, geometry);
+   nethckClientPrepareObjectTexturePacket(id, object);
 }
 
 /* vim: set ts=8 sw=3 tw=0 :*/
