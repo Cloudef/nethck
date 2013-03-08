@@ -8,6 +8,8 @@ typedef enum nethckPacketType {
    NETHCK_PACKET_OBJECT_TEXTURE,
 } _nethckPacketType;
 
+#pragma pack(push,1)
+
 /* \brief representation of object's material */
 typedef struct nethckMaterial {
    glhckColorb color;
@@ -59,6 +61,8 @@ typedef struct nethckObjectTexturePacket {
 typedef struct nethckPacket {
    unsigned char type;
 } nethckPacket;
+
+#pragma pack(pop)
 
 #endif /* __nethck_packets_h__ */
 

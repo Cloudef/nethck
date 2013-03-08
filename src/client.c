@@ -57,7 +57,7 @@ static nethckObject* _nethckTrackObject(unsigned int id, glhckObject *object)
 }
 
 /* \brief manage incoming object translation packet */
-static void _nethckClientManagePacketObjectTranslation(unsigned char *data)
+static void _nethckClientManagePacketObjectTranslation(void *data)
 {
    glhckObject *object;
    nethckObjectTranslationPacket *packet;
@@ -72,11 +72,11 @@ static void _nethckClientManagePacketObjectTranslation(unsigned char *data)
 }
 
 /* \brief manage incoming object texture packet */
-static void _nethckClientManagePacketObjectTexture(unsigned char *data)
+static void _nethckClientManagePacketObjectTexture(void *data)
 {
    glhckObject *object;
    glhckTexture *texture;
-   unsigned char *offset;
+   void *offset;
    nethckObjectTexturePacket *packet;
 
    offset = data;
@@ -93,16 +93,16 @@ static void _nethckClientManagePacketObjectTexture(unsigned char *data)
             packet->depth, 0, packet->format, packet->dataType, packet->size, offset))
       return;
 
-   printf("-- GOT TEXTURE %dx%d %d\n", packet->width, packet->height, packet->size);
+   printf("--- GOT TEXTURE %dx%d %d\n", packet->width, packet->height, packet->size);
    glhckTextureParameter(texture, NULL);
    glhckObjectTexture(object, texture);
 }
 
 /* \brief manage incoming object packet */
-static void _nethckClientManagePacketObject(unsigned char *data)
+static void _nethckClientManagePacketObject(void *data)
 {
    nethckObjectPacket *packet;
-   unsigned char *offset;
+   void *offset;
    size_t vsize = 0, isize = 0;
    glhckObject *object = NULL;
    glhckGeometry *geometry = NULL;
@@ -344,7 +344,7 @@ static int _nethckEnetUpdate(void)
 }
 
 /* \brief send packet */
-static void _nethckEnetSend(unsigned char *data, size_t size)
+static void _nethckEnetSend(const void *data, size_t size)
 {
    ENetPacket *packet;
    packet = enet_packet_create(data, size, ENET_PACKET_FLAG_RELIABLE);
@@ -362,14 +362,14 @@ static void nethckClientPrepareObjectTranslationPacket(unsigned int id, glhckObj
    memcpy(&tpacket.view.translation, (glhckVector3f*)glhckObjectGetPosition(object), sizeof(glhckVector3f));
    memcpy(&tpacket.view.rotation, (glhckVector3f*)glhckObjectGetRotation(object), sizeof(glhckVector3f));
    memcpy(&tpacket.view.scaling, (glhckVector3f*)glhckObjectGetScale(object), sizeof(glhckVector3f));
-   _nethckEnetSend((unsigned char*)&tpacket, sizeof(nethckObjectTranslationPacket));
+   _nethckEnetSend(&tpacket, sizeof(nethckObjectTranslationPacket));
 }
 
 /* \brief send object texture packet */
 static void nethckClientSendObjectTexturePacket(nethckObjectTexturePacket *packet, const void *tdata)
 {
    size_t size;
-   unsigned char *data = NULL, *offset;
+   void *data = NULL, *offset;
    assert(packet);
 
    size = sizeof(nethckObjectTexturePacket) + packet->size;
@@ -378,7 +378,7 @@ static void nethckClientSendObjectTexturePacket(nethckObjectTexturePacket *packe
 
    packet->type = NETHCK_PACKET_OBJECT_TEXTURE;
    memcpy(offset, packet, sizeof(nethckObjectTexturePacket)); offset += sizeof(nethckObjectTexturePacket);
-   memcpy(offset, data, packet->size); offset += packet->size;
+   memcpy(offset, tdata, packet->size); offset += packet->size;
    printf("--- SEND TEXTURE %dx%d %d\n", packet->width, packet->height, packet->size);
 
    _nethckEnetSend(data, size);
@@ -401,9 +401,12 @@ static void nethckClientPrepareObjectTexturePacket(unsigned int id, glhckObject 
 
    memset(&packet, 0, sizeof(nethckObjectTexturePacket));
    packet.id = id;
+
+   if (!(data = glhckTextureGetData(texture, &packet.size)))
+      return;
+
    glhckTextureGetInformation(texture, &packet.target, &packet.width, &packet.height,
          &packet.depth, NULL, &packet.format, &packet.dataType);
-   data = glhckTextureGetData(texture, &packet.size);
    nethckClientSendObjectTexturePacket(&packet, data);
 }
 
@@ -411,7 +414,7 @@ static void nethckClientPrepareObjectTexturePacket(unsigned int id, glhckObject 
 static void nethckClientSendObjectPacket(nethckObjectPacket *packet, const void *vdata, size_t vsize, const void *idata, size_t isize)
 {
    size_t size;
-   unsigned char *data = NULL, *offset;
+   void *data = NULL, *offset;
    assert(packet);
 
    if (!vdata) packet->geometry.vertexCount = 0;

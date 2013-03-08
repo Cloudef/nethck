@@ -102,7 +102,7 @@ static void _nethckEnetDestroy(void)
    _NETHCKserver.enet = NULL;
 }
 
-static void _nethckServerManagePacketObject(unsigned char *data)
+static void _nethckServerManagePacketObject(void *data)
 {
    nethckObjectPacket *packet = (nethckObjectPacket*)data;
 
