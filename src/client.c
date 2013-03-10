@@ -7,7 +7,11 @@
 
 /* \brief object wrapper struct */
 typedef struct nethckObject {
-   unsigned int id, vertexDataHash;
+   unsigned int id;
+   int textureSize;
+   unsigned int vertexDataHash;
+   unsigned int textureDataHash;
+   unsigned int materialDataHash;
    glhckObject *object;
    struct nethckObject *next;
 } nethckObject;
@@ -69,6 +73,19 @@ static void _nethckClientManagePacketObjectTranslation(void *data)
    glhckObjectScale(object, (kmVec3*)&packet->view.scaling);
    glhckObjectPosition(object, (kmVec3*)&packet->view.translation);
    glhckObjectRotation(object, (kmVec3*)&packet->view.rotation);
+}
+
+/* \brief manage incoming object material packet */
+static void _nethckClientManagePacketObjectMaterial(void *data)
+{
+   glhckObject *object;
+   nethckObjectMaterialPacket *packet;
+   packet = (nethckObjectMaterialPacket*)data;
+
+   if (!(object = nethckClientObjectForId(packet->id)))
+      return;
+
+   glhckObjectColor(object, &packet->material.color);
 }
 
 /* \brief manage incoming object texture packet */
@@ -294,15 +311,6 @@ static int _nethckEnetUpdate(void)
    while (enet_host_service(_NETHCKclient.enet, &event, 0) > 0) {
       switch (event.type) {
          case ENET_EVENT_TYPE_RECEIVE:
-#if 0
-            printf("A packet of length %zu containing %s was received from server on channel %u.\n",
-                  event.packet->dataLength,
-                  (char*)event.packet->data,
-                  event.channelID);
-
-            /* manage packet by kind */
-            printf("ID: %d\n", ((nethckPacket*)event.packet->data)->type);
-#endif
             switch (((nethckPacket*)event.packet->data)->type) {
                case NETHCK_PACKET_OBJECT:
                   _nethckClientManagePacketObject(event.packet->data);
@@ -310,15 +318,13 @@ static int _nethckEnetUpdate(void)
                case NETHCK_PACKET_OBJECT_TRANSLATION:
                   _nethckClientManagePacketObjectTranslation(event.packet->data);
                   break;
+               case NETHCK_PACKET_OBJECT_MATERIAL:
+                  _nethckClientManagePacketObjectMaterial(event.packet->data);
+                  break;
                case NETHCK_PACKET_OBJECT_TEXTURE:
                   _nethckClientManagePacketObjectTexture(event.packet->data);
                   break;
-
                default:
-                  printf("A packet of length %zu containing %s was received from server on channel %u.\n",
-                     event.packet->dataLength,
-                     (char*)event.packet->data,
-                     event.channelID);
                   break;
             }
 
@@ -327,9 +333,6 @@ static int _nethckEnetUpdate(void)
             break;
 
          case ENET_EVENT_TYPE_DISCONNECT:
-            printf("%s disconected.\n", (char*)event.peer->data);
-
-            /* Reset the peer's client information. */
             event.peer->data = NULL;
             break;
 
@@ -355,14 +358,25 @@ static void _nethckEnetSend(const void *data, size_t size)
 /* \brief prepare translation packet */
 static void nethckClientPrepareObjectTranslationPacket(unsigned int id, glhckObject *object)
 {
-   nethckObjectTranslationPacket tpacket;
-   memset(&tpacket, 0, sizeof(nethckObjectTranslationPacket));
-   tpacket.type = NETHCK_PACKET_OBJECT_TRANSLATION;
-   tpacket.id = id;
-   memcpy(&tpacket.view.translation, (glhckVector3f*)glhckObjectGetPosition(object), sizeof(glhckVector3f));
-   memcpy(&tpacket.view.rotation, (glhckVector3f*)glhckObjectGetRotation(object), sizeof(glhckVector3f));
-   memcpy(&tpacket.view.scaling, (glhckVector3f*)glhckObjectGetScale(object), sizeof(glhckVector3f));
-   _nethckEnetSend(&tpacket, sizeof(nethckObjectTranslationPacket));
+   nethckObjectTranslationPacket packet;
+   memset(&packet, 0, sizeof(nethckObjectTranslationPacket));
+   packet.type = NETHCK_PACKET_OBJECT_TRANSLATION;
+   packet.id = id;
+   memcpy(&packet.view.translation, (glhckVector3f*)glhckObjectGetPosition(object), sizeof(glhckVector3f));
+   memcpy(&packet.view.rotation, (glhckVector3f*)glhckObjectGetRotation(object), sizeof(glhckVector3f));
+   memcpy(&packet.view.scaling, (glhckVector3f*)glhckObjectGetScale(object), sizeof(glhckVector3f));
+   _nethckEnetSend(&packet, sizeof(nethckObjectTranslationPacket));
+}
+
+/* \brief prepare material packet */
+static void nethckClientPrepareObjectMaterialPacket(unsigned int id, glhckObject *object)
+{
+   nethckObjectMaterialPacket packet;
+   memset(&packet, 0, sizeof(nethckObjectMaterialPacket));
+   packet.type = NETHCK_PACKET_OBJECT_MATERIAL;
+   packet.id = id;
+   memcpy(&packet.material.color, glhckObjectGetColor(object), sizeof(glhckColorb));
+   _nethckEnetSend(&packet, sizeof(nethckObjectMaterialPacket));
 }
 
 /* \brief send object texture packet */
@@ -616,7 +630,11 @@ NETHCKAPI void nethckClientObjectRender(unsigned int id, glhckObject *object)
 {
    nethckObject *o;
    glhckGeometry *geometry = NULL;
-   unsigned int hash;
+   glhckTexture *newTexture;
+   const glhckColorb *newColor;
+   const unsigned char *textureData;
+   int textureSize, i;
+   unsigned int vertexDataHash, textureDataHash, materialDataHash;
    assert(object);
 
    if (!(o = _nethckTrackObject(id, object)))
@@ -626,17 +644,43 @@ NETHCKAPI void nethckClientObjectRender(unsigned int id, glhckObject *object)
       return;
 
    /* vertexdata changes? */
-   hash = _nethckGeometryVertexDataHash(geometry);
-   if (hash == o->vertexDataHash) {
-      nethckClientPrepareObjectTranslationPacket(id, object);
+   vertexDataHash = _nethckGeometryVertexDataHash(geometry);
+   if (vertexDataHash != o->vertexDataHash) {
+      printf("[FULL] -- %u\n", vertexDataHash);
+
+      /* full update, sends absolute everything about object */
+      nethckClientPrepareObjectPacket(id, object, geometry);
+      o->vertexDataHash = vertexDataHash;
       return;
    }
 
-   printf("%u\n", hash);
-   /* prepare full packet */
-   o->vertexDataHash = hash;
-   nethckClientPrepareObjectPacket(id, object, geometry);
-   nethckClientPrepareObjectTexturePacket(id, object);
+   /* check color change */
+   if ((newColor = glhckObjectGetColor(object))) {
+      materialDataHash = hashcb(newColor);
+      if (materialDataHash != o->materialDataHash) {
+         nethckClientPrepareObjectMaterialPacket(id, object);
+         o->materialDataHash = materialDataHash;
+      }
+   }
+
+   /* check texture change */
+   if ((newTexture = glhckObjectGetTexture(object))) {
+      if ((textureData = glhckTextureGetData(newTexture, &textureSize))) {
+         if (textureSize != o->textureSize) {
+            for (i = 0, textureDataHash = 0; i < textureSize; i+=textureSize/8) {
+               textureDataHash += hash(textureData[i]);
+            }
+
+            if (textureDataHash != o->textureDataHash) {
+               nethckClientPrepareObjectTexturePacket(id, object);
+               o->textureDataHash = textureDataHash;
+            }
+         }
+      }
+   }
+
+   /* send translation packet */
+   nethckClientPrepareObjectTranslationPacket(id, object);
 }
 
 /* vim: set ts=8 sw=3 tw=0 :*/

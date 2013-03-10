@@ -9,9 +9,6 @@
 #include <fcntl.h>
 #include <signal.h>
 
-/* TODO: implement null renderer in glhck */
-#include <GL/glfw3.h>
-
 enum {
    ID,
    TRANSLATION,
@@ -202,25 +199,14 @@ fail:
 int main(int argc, char **argv)
 {
    FILE *f;
-   GLFWwindow *window;
 
    if (!nethckClientCreate(NULL, 5050))
       return EXIT_FAILURE;
 
-   if (!glfwInit())
-      return EXIT_FAILURE;
-
-   glfwWindowHint(GLFW_DEPTH_BITS, 24);
-   if (!(window = glfwCreateWindow(1, 1, "client", NULL, NULL)))
-      return EXIT_FAILURE;
-   glfwMakeContextCurrent(window);
-
    if (!glhckContextCreate(argc, argv))
       return EXIT_FAILURE;
 
-   /* TODO: NULL renderer would be nice here
-    * would not need any window then either. */
-   if (!glhckDisplayCreate(1, 1, GLHCK_RENDER_AUTO))
+   if (!glhckDisplayCreate(1, 1, GLHCK_RENDER_STUB))
       return EXIT_FAILURE;
 
    signal(SIGQUIT, sigInt);

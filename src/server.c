@@ -147,24 +147,17 @@ static int _nethckEnetUpdate(void)
 
          case ENET_EVENT_TYPE_RECEIVE:
             /* manage packet by kind */
-            printf("A packet of length %zu was received from %s on channel %u.\n",
-                  event.packet->dataLength,
-                  ((__NETHCKclient*)event.peer->data)->host,
-                  event.channelID);
+            printf("A packet of length %zu was received on channel %u.\n",
+                  event.packet->dataLength, event.channelID);
             printf("ID: %d\n", ((nethckPacket*)event.packet->data)->type);
             switch (((nethckPacket*)event.packet->data)->type) {
                case NETHCK_PACKET_OBJECT:
                   _nethckServerManagePacketObject(event.packet->data);
                   break;
                case NETHCK_PACKET_OBJECT_TRANSLATION:
-                  break;
-
+               case NETHCK_PACKET_OBJECT_MATERIAL:
+               case NETHCK_PACKET_OBJECT_TEXTURE:
                default:
-                  printf("A packet of length %zu containing %s was received from %s on channel %u.\n",
-                     event.packet->dataLength,
-                     (char*)event.packet->data,
-                     ((__NETHCKclient*)event.peer->data)->host,
-                     event.channelID);
                   break;
             }
 
@@ -176,8 +169,7 @@ static int _nethckEnetUpdate(void)
             break;
 
          case ENET_EVENT_TYPE_DISCONNECT:
-            printf("%s disconected.\n",
-                  ((__NETHCKclient*)event.peer->data)->host);
+            printf("%s disconected.\n", ((__NETHCKclient*)event.peer->data)->host);
 
             /* free the client */
             _nethckServerFreeClient(event.peer->data);

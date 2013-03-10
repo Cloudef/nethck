@@ -99,7 +99,6 @@ def buildData(mesh):
 #
 
 # Dictionary for storing object's geometry update state
-geometryUpdate={}
 fifoPath='/tmp/blender.fifo'
 
 # Return object's position
@@ -125,13 +124,11 @@ def obScaling(ob):
    return [-ob.scale[0],ob.scale[2],ob.scale[1]]
 
 # Dump object to FIFO
-def sendObject(ob, edited):
-   global geometryUpdate
+def sendObject(ob, force):
    global fifoPath
 
    # Check for fifo
    if not os.path.exists(fifoPath):
-      geometryUpdate={}
       removeUpdateCallback()
       bpy.types.Scene.Nethck = True
       return
@@ -139,25 +136,22 @@ def sendObject(ob, edited):
    f = open(fifoPath, 'w')
    if f:
       obId = hash(ob.name) % (2**32)
-      shouldUpdateGeometry = geometryUpdate.get(obId, True)
       position = obPosition(ob)
       rotation = obRotation(ob)
       scaling  = obScaling(ob)
 
-      if ob.mode == 'OBJECT':
-         f.write(str(obId)+"\n")
-         f.write(str(position[0])+","+
-                 str(position[1])+","+
-                 str(position[2])+"\n")
-         f.write(str(rotation[0])+","+
-                 str(rotation[1])+","+
-                 str(rotation[2])+"\n")
-         f.write(str(scaling[0])+","+
-                 str(scaling[1])+","+
-                 str(scaling[2])+"\n")
-         f.write("%f,%f,%f,%f\n"%tuple(ob.color))
+      f.write("%u\n"%obId)
+      f.write("%f,%f,%f\n"%tuple(position))
+      f.write("%f,%f,%f\n"%tuple(rotation))
+      f.write("%f,%f,%f\n"%tuple(scaling))
 
-         if shouldUpdateGeometry and ob.active_material:
+      # Send material parameters
+      if ob.active_material:
+         diffuse = ob.active_material.diffuse_color
+         f.write("%f,%f,%f,%f\n"%(diffuse[0], diffuse[1], diffuse[2], ob.active_material.alpha))
+
+         updateTexture = (ob.active_material.active_texture and ob.active_material.active_texture.is_updated)
+         if force or updateTexture:
             texture = ob.active_material.active_texture
             if "image" in dir(texture) and texture.image is not None:
                f.write(bpy.path.abspath(texture.image.filepath)+"\n")
@@ -165,62 +159,70 @@ def sendObject(ob, edited):
                f.write("NULL\n")
          else:
             f.write("NULL\n")
+      else:
+         f.write("%f,%f,%f,%f\n"%tuple(ob.color))
+         f.write("NULL\n")
 
-         # Convert the object to mesh and write it's vertexData if needed
-         if shouldUpdateGeometry:
-            mesh = ob.to_mesh(bpy.context.scene, True, "PREVIEW")
+      # Convert the object to mesh and write it's vertexData if needed
+      if force or ob.is_updated_data:
+         mesh = ob.to_mesh(bpy.context.scene, True, "PREVIEW")
 
-            # Convert to OpenGL/GLhck friendly vertex data
-            vertexData = buildData(mesh)
-            vertices = vertexData['vertices']
-            normals = vertexData['normals']
-            uvs = vertexData['uvs']
-            indices = vertexData['indices']
+         # Convert to OpenGL/GLhck friendly vertex data
+         vertexData = buildData(mesh)
+         vertices = vertexData['vertices']
+         normals = vertexData['normals']
+         uvs = vertexData['uvs']
+         indices = vertexData['indices']
 
-            # Length of vertices/indices <int, int>
-            f.write(str(len(vertices))+","+
-                    str(len(indices)*3)+"\n")
+         # Length of vertices/indices <int, int>
+         f.write("%d,%d\n"%(len(vertices),len(indices)*3))
 
-            # Write vertices, normals and uvs
-            for i in range(0,len(vertices)):
-               f.write("%f,%f,%f\n"%tuple(vertices[i]))
-               f.write("%f,%f,%f\n"%tuple(normals[i]))
-               f.write("%f,%f\n"%tuple(uvs[i]))
+         # Write vertices, normals and uvs
+         for i in range(0,len(vertices)):
+            f.write("%f,%f,%f\n"%tuple(vertices[i]))
+            f.write("%f,%f,%f\n"%tuple(normals[i]))
+            f.write("%f,%f\n"%tuple(uvs[i]))
 
-            # Write indices
-            for i in indices:
-               f.write("%d,%d,%d\n"%tuple(i))
-         else:
-            # No need to send the geometry data, so inform 0,0 length
-            f.write("0,0\n")
+         # Write indices
+         for i in indices:
+            f.write("%d,%d,%d\n"%tuple(i))
+      else:
+         # No need to send the geometry data, so inform 0,0 length
+         f.write("0,0\n")
 
-      # Flush and close FIFO
-      f.flush()
+      # Close FIFO
       f.close()
-
-      # Store object edit state
-      geometryUpdate[obId] = edited
 
 # UpdateAPI callback
 def sceneUpdate(context):
    if bpy.data.objects.is_updated:
       print("One or more objects were updated!")
       for ob in bpy.data.objects:
-         if ob.type == 'MESH':
-            if ob.is_updated:
-               print("=>", ob.name)
-               sendObject(ob, False)
-            else:
-               mesh = bpy.data.meshes.get(ob.data.name)
-               if mesh.is_updated:
-                  print("=>", mesh)
-                  sendObject(ob, True)
+         if ob.type == 'MESH' and ob.is_updated:
+            # ob.is_updated_data for edit mode updates!
+            print("=>", ob.name)
+            sendObject(ob, False)
+   if bpy.data.textures.is_updated:
+      for texture in bpy.data.textures:
+         if texture.is_updated:
+            for ob in bpy.data.objects:
+               if ob.type == 'MESH' and ob.active_material:
+                  if ob.active_material.active_texture and ob.active_material.active_texture.name == texture.name:
+                     sendObject(ob, False)
+            print("=>", texture.name);
+   if bpy.data.materials.is_updated:
+      for material in bpy.data.materials:
+         if material.is_updated:
+            for ob in bpy.data.objects:
+               if ob.type == 'MESH' and ob.active_material and ob.active_material.name == material.name:
+                  sendObject(ob, False)
+            print("=>", material.name);
 
 # Update whole scene
 def sceneUpdateFull():
    for ob in bpy.data.objects:
       if ob.type == 'MESH':
-         sendObject(ob, False)
+         sendObject(ob, True)
 
 # Register update callback
 def registerUpdateCallback():
@@ -240,7 +242,6 @@ class nethckCheck(bpy.types.Operator):
    bl_description = 'Synchorize over nethck \'protocol\''
 
    def execute(self, context):
-      global geometryUpdate
       global fifoPath
       if bpy.types.Scene.Nethck:
          if not os.path.exists(fifoPath):
@@ -248,13 +249,11 @@ class nethckCheck(bpy.types.Operator):
             return {'FINISHED'}
 
          # Activated
-         geometryUpdate={}
          sceneUpdateFull()
          registerUpdateCallback()
          bpy.types.Scene.Nethck = False
       else:
          # Disabled
-         geometryUpdate={}
          removeUpdateCallback()
          bpy.types.Scene.Nethck = True
 
@@ -271,8 +270,6 @@ def nethckDraw(self, context):
 
 # Plugin's register method
 def register():
-   global geometryUpdate
-   geometryUpdate={}
    removeUpdateCallback()
    bpy.types.Scene.Nethck = BoolProperty(
          name=nethckCheck.bl_label,
@@ -283,8 +280,6 @@ def register():
 
 # Plugin's unregister method
 def unregister():
-   global geometryUpdate
-   geometryUpdate={}
    removeUpdateCallback()
    del bpy.types.Scene.Nethck
    bpy.utils.unregister_class(nethckCheck)
