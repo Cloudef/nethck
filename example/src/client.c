@@ -8,8 +8,8 @@
 
 typedef struct ClientData {
    kmVec3 cameraPos, cameraRot;
-   int mouseX, mouseY;
-   int lastMouseX, lastMouseY;
+   double mouseX, mouseY;
+   double lastMouseX, lastMouseY;
    float delta;
    int width, height;
    glhckProjectionType projectionType;
@@ -17,12 +17,11 @@ typedef struct ClientData {
    char running;
 } ClientData;
 
-static int closeCallback(GLFWwindow *window)
+static void closeCallback(GLFWwindow *window)
 {
    ClientData *data = (ClientData*)glfwGetWindowUserPointer(window);
-   if (!data) return 1;
+   if (!data) return;
    data->running = 0;
-   return 1;
 }
 
 static void resizeCallback(GLFWwindow *window, int width, int height)
@@ -35,7 +34,7 @@ static void resizeCallback(GLFWwindow *window, int width, int height)
    data->activity = 1;
 }
 
-static void mouseCallback(GLFWwindow* window, int mousex, int mousey)
+static void mouseCallback(GLFWwindow* window, double mousex, double mousey)
 {
    ClientData *data = (ClientData*)glfwGetWindowUserPointer(window);
    if (!data) return;

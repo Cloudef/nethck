@@ -106,8 +106,8 @@ static void handleGeometry(FILE *f, glhckObject *object, size_t vertexCount, siz
    if (!(geometry = glhckObjectNewGeometry(object)))
       goto fail;
 
-   glhckGeometrySetVertices(geometry, GLHCK_VERTEX_V3F, vdata, vertexCount);
-   if (indexCount) glhckGeometrySetIndices(geometry, GLHCK_INDEX_INTEGER, idata, indexCount);
+   glhckGeometryInsertVertices(geometry, GLHCK_VERTEX_V3F, vdata, vertexCount);
+   if (indexCount) glhckGeometryInsertIndices(geometry, GLHCK_INDEX_INTEGER, idata, indexCount);
    geometry->type = GLHCK_TRIANGLES;
 
    free(vdata);

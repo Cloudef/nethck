@@ -154,13 +154,13 @@ static void _nethckClientManagePacketObject(void *data)
 
    if (packet->geometry.vertexCount) {
       vsize = geometry->vertexCount * glhckVertexTypeElementSize(geometry->vertexType);
-      glhckGeometrySetVertices(geometry, geometry->vertexType, offset, geometry->vertexCount);
+      glhckGeometryInsertVertices(geometry, geometry->vertexType, offset, geometry->vertexCount);
       offset += vsize;
    }
 
    if (packet->geometry.indexCount) {
       isize = geometry->indexCount * glhckIndexTypeElementSize(geometry->indexType);
-      glhckGeometrySetIndices(geometry, geometry->indexType, offset, geometry->indexCount);
+      glhckGeometryInsertIndices(geometry, geometry->indexType, offset, geometry->indexCount);
       offset += isize;
    }
 
@@ -413,6 +413,11 @@ static void nethckClientPrepareObjectTexturePacket(unsigned int id, glhckObject 
    if (!(texture = glhckObjectGetTexture(object)))
       return;
 
+   return;
+
+   /* FIXME: glhckTextureGetData is removed
+    * send the texture compressed instead and load at end point */
+#if 0
    memset(&packet, 0, sizeof(nethckObjectTexturePacket));
    packet.id = id;
 
@@ -422,6 +427,7 @@ static void nethckClientPrepareObjectTexturePacket(unsigned int id, glhckObject 
    glhckTextureGetInformation(texture, &packet.target, &packet.width, &packet.height,
          &packet.depth, NULL, &packet.format, &packet.dataType);
    nethckClientSendObjectTexturePacket(&packet, data);
+#endif
 }
 
 /* \brief send object packet */
@@ -665,6 +671,7 @@ NETHCKAPI void nethckClientObjectRender(unsigned int id, glhckObject *object)
 
    /* check texture change */
    if ((newTexture = glhckObjectGetTexture(object))) {
+#if 0
       if ((textureData = glhckTextureGetData(newTexture, &textureSize))) {
          if (textureSize != o->textureSize) {
             for (i = 0, textureDataHash = 0; i < textureSize; i+=textureSize/8) {
@@ -677,6 +684,7 @@ NETHCKAPI void nethckClientObjectRender(unsigned int id, glhckObject *object)
             }
          }
       }
+#endif
    }
 
    /* send translation packet */
